@@ -180,7 +180,7 @@ if st.session_state.current_page == "成本計算":
                     st.markdown(f"""
                     <div class="metric-card">
                         <h4>{selected_material}</h4>
-                        <p><strong>單價：</strong>NT$ {price} / g</p>
+                        <p><strong>單價：</strong>NT$ {price} / 1g</p>
                     </div>
                     """, unsafe_allow_html=True)
                 
@@ -229,7 +229,7 @@ if st.session_state.current_page == "成本計算":
                         st.markdown(f"""
                         **計算過程：**
                         - 重量：{weight:.1f} g
-                        - 單價：NT$ {price} / g
+                        - 單價：NT$ {price} / 1g
                         - 成本：{weight:.1f} × {price} = **NT$ {cost:.2f}**
                         """)
         else:
@@ -318,7 +318,7 @@ else:
                         <div style="display: flex; justify-content: space-between; align-items: center;">
                             <div>
                                 <strong>{material}</strong><br>
-                                <small>NT$ {price} / g</small>
+                                <small>NT$ {price} / 1g</small>
                             </div>
                             <div>
                                 <button onclick="deleteMaterial('{material}')" style="background: #dc3545; color: white; border: none; border-radius: 4px; padding: 4px 8px; cursor: pointer;">刪除</button>
