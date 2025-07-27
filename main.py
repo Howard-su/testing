@@ -235,62 +235,62 @@ with st.sidebar:
                 st.markdown(f"• {material}")
     
     # 新增資料匯出功能
-    st.markdown("---")
-    st.markdown("### 📤 資料匯出")
-    if st.button("📥 下載所有資料", key="download_btn"):
-        # 準備下載資料
-        download_data = {
-            "materials": st.session_state.saved_materials,
-            "recipes": st.session_state.saved_recipes,
-            "accounting": st.session_state.accounting_records
-        }
+    # st.markdown("---")
+    # st.markdown("### 📤 資料匯出")
+    # if st.button("📥 下載所有資料", key="download_btn"):
+    #     # 準備下載資料
+    #     download_data = {
+    #         "materials": st.session_state.saved_materials,
+    #         "recipes": st.session_state.saved_recipes,
+    #         "accounting": st.session_state.accounting_records
+    #     }
 
-        # 轉換為 JSON 字串
-        import json
-        json_str = json.dumps(download_data, ensure_ascii=False, indent=2)
+    #     # 轉換為 JSON 字串
+    #     import json
+    #     json_str = json.dumps(download_data, ensure_ascii=False, indent=2)
 
-        # 提供下載
-        st.download_button(
-            label="💾 下載資料檔案",
-            data=json_str,
-            file_name="streamlit_data_backup.json",
-            mime="application/json"
-        )
+    #     # 提供下載
+    #     st.download_button(
+    #         label="💾 下載資料檔案",
+    #         data=json_str,
+    #         file_name="streamlit_data_backup.json",
+    #         mime="application/json"
+    #     )
 
-    # 資料匯入功能
-    st.markdown("### 📥 資料匯入")
-    uploaded_file = st.file_uploader(
-        "選擇要匯入的資料檔案",
-        type=['json'],
-        key="upload_data"
-    )
+    # # 資料匯入功能
+    # st.markdown("### 📥 資料匯入")
+    # uploaded_file = st.file_uploader(
+    #     "選擇要匯入的資料檔案",
+    #     type=['json'],
+    #     key="upload_data"
+    # )
 
-    if uploaded_file is not None:
-        try:
-            # 讀取上傳的檔案
-            import json
-            uploaded_data = json.load(uploaded_file)
+    # if uploaded_file is not None:
+    #     try:
+    #         # 讀取上傳的檔案
+    #         import json
+    #         uploaded_data = json.load(uploaded_file)
             
-            # 更新 session state
-            if 'materials' in uploaded_data:
-                st.session_state.saved_materials = uploaded_data['materials']
-                save_materials_data()
+    #         # 更新 session state
+    #         if 'materials' in uploaded_data:
+    #             st.session_state.saved_materials = uploaded_data['materials']
+    #             save_materials_data()
             
-            if 'recipes' in uploaded_data:
-                st.session_state.saved_recipes = uploaded_data['recipes']
-                save_recipes_data()
+    #         if 'recipes' in uploaded_data:
+    #             st.session_state.saved_recipes = uploaded_data['recipes']
+    #             save_recipes_data()
             
-            if 'accounting' in uploaded_data:
-                st.session_state.accounting_records = uploaded_data['accounting']
-                save_accounting_data()
+    #         if 'accounting' in uploaded_data:
+    #             st.session_state.accounting_records = uploaded_data['accounting']
+    #             save_accounting_data()
             
-            st.success("✅ 資料匯入成功！")
-            st.rerun()
+    #         st.success("✅ 資料匯入成功！")
+    #         st.rerun()
             
-        except Exception as e:
-            st.error(f"❌ 匯入失敗：{e}")
+    #     except Exception as e:
+    #         st.error(f"❌ 匯入失敗：{e}")
     
-    st.markdown('</div>', unsafe_allow_html=True)
+    # st.markdown('</div>', unsafe_allow_html=True)
 
 # 根據選擇的頁面顯示不同內容
 if st.session_state.current_page == "成本計算":
