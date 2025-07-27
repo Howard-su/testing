@@ -315,22 +315,22 @@ if st.session_state.current_page == "成本計算":
             with col1 if i % 2 == 0 else col2:
                 # 檢查是否已選中
                 is_selected = material in st.session_state.selected_materials
-                
+
                 # 使用複選框
                 price_display = st.session_state.saved_materials[material]
                 if price_display == int(price_display):
                     price_display = int(price_display)
-                
+
                 if st.checkbox(
                     f"{material} (NT$ {price_display}/g)",
                     value=is_selected,
                     key=f"checkbox_{material}"
                 ):
                     selected_materials.append(material)
-        
+
         # 更新session state
         st.session_state.selected_materials = selected_materials
-        
+
         # 快速操作按鈕
         if material_options:
             st.markdown("---")
@@ -376,7 +376,7 @@ if st.session_state.current_page == "成本計算":
                         <p><strong>單價：</strong>NT$ {price_display} / 1g</p>
                     </div>
                     """, unsafe_allow_html=True)
-                    
+
                     # 輸入克數
                     current_weight = st.session_state.material_weights.get(material, 0.0)
                     weight = st.text_input(
@@ -811,7 +811,7 @@ elif st.session_state.current_page == "記帳區":
         # 選擇顯示模式
         display_mode = st.radio(
             "顯示模式",
-            ["記帳記錄", "月報表"],
+            ["記帳記錄", "月報表", "購買人分析"],
             horizontal=True,
             label_visibility="collapsed"
         )
@@ -889,7 +889,7 @@ elif st.session_state.current_page == "記帳區":
                 # 添加分隔線
                 st.markdown("---")
         
-        else:  # 月報表模式
+        elif display_mode == "月報表":
             st.markdown("#### 月報表")
             
             # 選擇月份
@@ -966,6 +966,162 @@ elif st.session_state.current_page == "記帳區":
                     st.info(f"{selected_year}年{selected_month}月沒有記帳記錄")
             else:
                 st.info("尚未有任何記帳記錄")
+        
+        elif display_mode == "購買人分析":
+            st.markdown("#### 購買人分析")
+            
+            # 獲取所有購買人
+            all_buyers = set()
+            for record in st.session_state.accounting_records:
+                buyer = record.get('buyer', '')
+                if buyer:  # 只包含有購買人的記錄
+                    all_buyers.add(buyer)
+            
+            if all_buyers:
+                # 選擇購買人
+                selected_buyer = st.selectbox(
+                    "選擇購買人",
+                    sorted(list(all_buyers)),
+                    label_visibility="collapsed"
+                )
+                
+                # 篩選該購買人的記錄
+                buyer_records = [
+                    record for record in st.session_state.accounting_records 
+                    if record.get('buyer', '') == selected_buyer
+                ]
+                
+                if buyer_records:
+                    # 計算購買人統計
+                    buyer_total_income = sum(record["amount"] for record in buyer_records if record["type"] == "收入")
+                    buyer_total_expense = sum(record["amount"] for record in buyer_records if record["type"] == "支出")
+                    buyer_net = buyer_total_income - buyer_total_expense
+                    buyer_record_count = len(buyer_records)
+                    
+                    # 顯示購買人統計
+                    col1, col2, col3, col4 = st.columns(4)
+                    with col1:
+                        st.metric("總記錄數", buyer_record_count)
+                    with col2:
+                        st.metric("總收入", f"NT$ {buyer_total_income}")
+                    with col3:
+                        st.metric("總支出", f"NT$ {buyer_total_expense}")
+                    with col4:
+                        st.metric("淨收入", f"NT$ {buyer_net}")
+                    
+                    # 按類別統計
+                    st.markdown("---")
+                    st.markdown("#### 按類別統計")
+                    
+                    category_stats = {}
+                    for record in buyer_records:
+                        category = record['category']
+                        amount = record['amount']
+                        record_type = record['type']
+                        
+                        if category not in category_stats:
+                            category_stats[category] = {'income': 0, 'expense': 0, 'count': 0}
+                        
+                        if record_type == "收入":
+                            category_stats[category]['income'] += amount
+                        else:
+                            category_stats[category]['expense'] += amount
+                        category_stats[category]['count'] += 1
+                    
+                    # 顯示類別統計表格
+                    category_data = []
+                    for category, stats in category_stats.items():
+                        category_data.append({
+                            "類別": category,
+                            "記錄數": stats['count'],
+                            "收入": f"NT$ {stats['income']}",
+                            "支出": f"NT$ {stats['expense']}",
+                            "淨額": f"NT$ {stats['income'] - stats['expense']}"
+                        })
+                    
+                    if category_data:
+                        df_category = pd.DataFrame(category_data)
+                        st.dataframe(
+                            df_category,
+                            use_container_width=True,
+                            hide_index=True
+                        )
+                    
+                    # 顯示購買人詳細記錄
+                    st.markdown("---")
+                    st.markdown("#### 詳細記錄")
+                    
+                    # 篩選選項
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        filter_type = st.selectbox(
+                            "篩選類型",
+                            ["全部", "收入", "支出"],
+                            label_visibility="collapsed"
+                        )
+                    with col2:
+                        filter_category = st.selectbox(
+                            "篩選類別",
+                            ["全部"] + sorted(list(set(record['category'] for record in buyer_records))),
+                            label_visibility="collapsed"
+                        )
+                    
+                    # 應用篩選
+                    filtered_records = buyer_records
+                    if filter_type != "全部":
+                        filtered_records = [r for r in filtered_records if r['type'] == filter_type]
+                    if filter_category != "全部":
+                        filtered_records = [r for r in filtered_records if r['category'] == filter_category]
+                    
+                    # 顯示篩選後的記錄
+                    if filtered_records:
+                        # 按日期排序
+                        sorted_filtered_records = sorted(filtered_records, 
+                                                       key=lambda x: x.get("date", x.get("datetime", "")), reverse=True)
+                        
+                        # 顯示記錄表格
+                        filtered_table_data = []
+                        for record in sorted_filtered_records:
+                            date_str = record.get('date', record.get('datetime', ''))
+                            if 'T' in date_str:
+                                date_str = date_str.split('T')[0]
+                            record_date = datetime.fromisoformat(date_str).strftime("%Y-%m-%d")
+                            type_icon = "💰" if record['type'] == "收入" else "💸"
+                            
+                            filtered_table_data.append({
+                                "日期": record_date,
+                                "類型": f"{type_icon} {record['type']}",
+                                "類別": record['category'],
+                                "細項": record['description'],
+                                "金額": f"NT$ {record['amount']}",
+                                "地點": record.get('location', '')
+                            })
+                        
+                        df_filtered = pd.DataFrame(filtered_table_data)
+                        st.dataframe(
+                            df_filtered,
+                            use_container_width=True,
+                            hide_index=True
+                        )
+                        
+                        # 顯示篩選統計
+                        filtered_income = sum(record["amount"] for record in filtered_records if record["type"] == "收入")
+                        filtered_expense = sum(record["amount"] for record in filtered_records if record["type"] == "支出")
+                        filtered_net = filtered_income - filtered_expense
+                        
+                        col1, col2, col3 = st.columns(3)
+                        with col1:
+                            st.metric("篩選收入", f"NT$ {filtered_income}")
+                        with col2:
+                            st.metric("篩選支出", f"NT$ {filtered_expense}")
+                        with col3:
+                            st.metric("篩選淨額", f"NT$ {filtered_net}")
+                    else:
+                        st.info("沒有符合篩選條件的記錄")
+                else:
+                    st.info(f"沒有 {selected_buyer} 的購買記錄")
+            else:
+                st.info("沒有購買人資料，請先在記帳時填寫購買人欄位")
     
     # 批量操作（只在記帳記錄模式顯示）
     if st.session_state.accounting_records and display_mode == "記帳記錄":
