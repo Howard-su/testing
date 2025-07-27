@@ -2,13 +2,14 @@ import streamlit as st
 import pandas as pd
 import json
 import base64
+import uuid
 from datetime import datetime
 import os
 
-# 添加缓存装饰器
+# 添加快取裝飾器
 @st.cache_data
 def get_material_options(materials_dict):
-    """缓存材料选项列表，避免重复计算"""
+    """快取材料選項列表，避免重複計算"""
     return list(materials_dict.keys())
 
 # 設定頁面配置
@@ -153,7 +154,12 @@ def load_accounting_data():
     if os.path.exists('accounting_records.json'):
         try:
             with open('accounting_records.json', 'r', encoding='utf-8') as f:
-                return json.load(f)
+                records = json.load(f)
+                # 為舊記錄添加ID
+                for record in records:
+                    if 'id' not in record:
+                        record['id'] = str(uuid.uuid4())
+                return records
         except Exception as e:
             st.error(f"載入記帳資料時發生錯誤：{e}")
             try:
@@ -241,10 +247,10 @@ if st.session_state.current_page == "成本計算":
         
         st.markdown("#### 選擇材料（可多選）")
         
-        # 使用复选框選擇材料
+        # 使用複選框選擇材料
         selected_materials = []
         
-        # 創建兩列布局來顯示材料選項
+        # 創建兩列佈局來顯示材料選項
         col1, col2 = st.columns(2)
         
         for i, material in enumerate(material_options):
@@ -253,7 +259,7 @@ if st.session_state.current_page == "成本計算":
                 # 檢查是否已選中
                 is_selected = material in st.session_state.selected_materials
                 
-                # 使用复选框
+                # 使用複選框
                 price_display = st.session_state.saved_materials[material]
                 if price_display == int(price_display):
                     price_display = int(price_display)
@@ -363,7 +369,7 @@ if st.session_state.current_page == "成本計算":
                     st.markdown("---")
                     st.markdown("### 計算結果")
                     
-                    # 顯示每個材料的詳細信息
+                    # 顯示每個材料的詳細資訊
                     st.markdown("""
                     <style>
                     .small-metric {
@@ -426,7 +432,7 @@ if st.session_state.current_page == "成本計算":
                     key="recipe_name_input"
                 )
                 
-                # 顯示保存成功消息
+                # 顯示保存成功訊息
                 if st.session_state.show_save_success:
                     st.markdown(f"""
                     <div style="background-color: #d4edda; color: #155724; padding: 10px; border-radius: 5px; border: 1px solid #c3e6cb; margin: 10px 0;">
@@ -573,7 +579,7 @@ elif st.session_state.current_page == "食譜區":
                 total_cost_display = f"{recipe_data['total_cost']:.2f}"
             
             with st.expander(f"📖 {recipe_name} - NT$ {total_cost_display}", expanded=False):
-                # 顯示食譜詳細信息
+                # 顯示食譜詳細資訊
                 st.markdown(f"**創建時間：** {recipe_data['created_at'][:19]}")
                 st.markdown("---")
                 
@@ -644,16 +650,10 @@ elif st.session_state.current_page == "記帳區":
         
         # 新增記帳表單
         with st.form("add_accounting_form"):
-            # 日期和時間選擇
+            # 日期選擇
             record_date = st.date_input(
                 "日期",
                 value=datetime.now().date(),
-                label_visibility="visible"
-            )
-            
-            record_time = st.time_input(
-                "時間",
-                value=datetime.now().time(),
                 label_visibility="visible"
             )
             
@@ -664,16 +664,16 @@ elif st.session_state.current_page == "記帳區":
                 label_visibility="visible"
             )
             
-            # 類別選擇
-            category = st.selectbox(
+            # 類別（自由輸入）
+            category = st.text_input(
                 "類別",
-                ["食材", "設備", "包裝", "運輸", "其他"],
+                placeholder="例如：食材、設備、包裝、運輸、其他...",
                 label_visibility="visible"
             )
             
-            # 描述
+            # 細項
             description = st.text_input(
-                "描述",
+                "細項",
                 placeholder="例如：購買麵粉、運費、銷售收入...",
                 label_visibility="visible"
             )
@@ -703,13 +703,14 @@ elif st.session_state.current_page == "記帳區":
             
             submitted = st.form_submit_button("新增記帳", type="primary", use_container_width=True)
             if submitted:
-                if description and amount > 0:
-                    # 組合日期和時間
-                    record_datetime = datetime.combine(record_date, record_time)
+                if description and amount > 0 and category:
+                    # 生成唯一ID
+                    record_id = str(uuid.uuid4())
                     
                     # 新增記帳記錄
                     record = {
-                        "datetime": record_datetime.isoformat(),
+                        "id": record_id,
+                        "date": record_date.isoformat(),
                         "type": transaction_type,
                         "category": category,
                         "description": description,
@@ -723,7 +724,7 @@ elif st.session_state.current_page == "記帳區":
                     st.success(f"✅ 記帳成功！{transaction_type} - {description} - NT$ {amount}")
                     st.rerun()
                 else:
-                    st.error("請輸入描述和金額！")
+                    st.error("請輸入細項、金額和類別！")
     
     with col2:
         st.markdown("#### 記帳統計")
@@ -732,15 +733,8 @@ elif st.session_state.current_page == "記帳區":
             # 計算總收入和總支出
             total_income = sum(record["amount"] for record in st.session_state.accounting_records if record["type"] == "收入")
             total_expense = sum(record["amount"] for record in st.session_state.accounting_records if record["type"] == "支出")
-            
-            # 按類別統計
-            category_stats = {}
-            for record in st.session_state.accounting_records:
-                cat = record["category"]
-                if cat not in category_stats:
-                    category_stats[cat] = {"收入": 0, "支出": 0}
-                category_stats[cat][record["type"]] += record["amount"]
-            
+
+    
             # 顯示統計
             col_income, col_expense = st.columns(2)
             with col_income:
@@ -749,51 +743,175 @@ elif st.session_state.current_page == "記帳區":
                 st.metric("總支出", f"NT$ {total_expense}")
             
             st.markdown("---")
-            st.markdown("**按類別統計：**")
-            for cat, amounts in category_stats.items():
-                income = amounts["收入"]
-                expense = amounts["支出"]
-                if income > 0 or expense > 0:
-                    st.markdown(f"• {cat}: 收入 NT$ {income} | 支出 NT$ {expense}")
+
         else:
             st.info("尚未有任何記帳記錄")
     
-    # 記帳記錄列表
+    # 記帳記錄和月報表
     if st.session_state.accounting_records:
         st.markdown("---")
-        st.markdown("#### 記帳記錄")
         
-        # 按時間排序（最新的在前）
-        sorted_records = sorted(st.session_state.accounting_records, 
-                              key=lambda x: x["datetime"], reverse=True)
+        # 選擇顯示模式
+        display_mode = st.radio(
+            "顯示模式",
+            ["記帳記錄", "月報表"],
+            horizontal=True,
+            label_visibility="collapsed"
+        )
         
-        for i, record in enumerate(sorted_records):
-            # 格式化時間顯示
-            record_time = datetime.fromisoformat(record['datetime']).strftime("%Y-%m-%d %H:%M")
-            type_icon = "💰" if record['type'] == "收入" else "💸"
+        if display_mode == "記帳記錄":
+            st.markdown("#### 記帳記錄")
             
-            with st.expander(f"{type_icon} {record_time} - {record['description']} - NT$ {record['amount']}", expanded=False):
-                col1, col2, col3 = st.columns(3)
-                with col1:
-                    st.markdown(f"**時間：** {record_time}")
-                    st.markdown(f"**類型：** {record['type']}")
-                    st.markdown(f"**類別：** {record['category']}")
-                with col2:
-                    st.markdown(f"**描述：** {record['description']}")
-                    st.markdown(f"**金額：** NT$ {record['amount']}")
-                with col3:
-                    st.markdown(f"**地點：** {record.get('location', '未填寫')}")
-                    st.markdown(f"**購買人：** {record.get('buyer', '未填寫')}")
+            # 按日期排序（最新的在前）
+            sorted_records = sorted(st.session_state.accounting_records, 
+                                  key=lambda x: x.get("date", x.get("datetime", "")), reverse=True)
+            
+            # 顯示記帳記錄（每行都有刪除按鈕）
+            # 表頭
+            with st.container():
+                col1, col2, col3, col4, col5, col6, col7, col8 = st.columns([1, 1, 1, 2, 1, 1, 1, 1])
                 
-                # 刪除按鈕
-                if st.button("刪除記錄", key=f"del_record_{i}", use_container_width=True):
-                    st.session_state.accounting_records.pop(i)
-                    save_accounting_data()
-                    st.success("記錄已刪除")
-                    st.rerun()
+                with col1:
+                    st.markdown("**日期**")
+                with col2:
+                    st.markdown("**類型**")
+                with col3:
+                    st.markdown("**類別**")
+                with col4:
+                    st.markdown("**細項**")
+                with col5:
+                    st.markdown("**金額**")
+                with col6:
+                    st.markdown("**地點**")
+                with col7:
+                    st.markdown("**購買人**")
+                with col8:
+                    st.markdown("**操作**")
+            
+            st.markdown("---")
+            
+            for i, record in enumerate(sorted_records):
+                # 相容舊資料格式
+                date_str = record.get('date', record.get('datetime', ''))
+                if 'T' in date_str:  # 如果是datetime格式，只取日期部分
+                    date_str = date_str.split('T')[0]
+                record_date = datetime.fromisoformat(date_str).strftime("%Y-%m-%d")
+                type_icon = "💰" if record['type'] == "收入" else "💸"
+                record_id = record.get('id', f'legacy_{i}')  # 相容舊資料
+                
+                # 創建記錄行
+                with st.container():
+                    col1, col2, col3, col4, col5, col6, col7, col8 = st.columns([1, 1, 1, 2, 1, 1, 1, 1])
+                    
+                    with col1:
+                        st.markdown(f"**{record_date}**")
+                    with col2:
+                        st.markdown(f"{type_icon} {record['type']}")
+                    with col3:
+                        st.markdown(f"{record['category']}")
+                    with col4:
+                        st.markdown(f"{record['description']}")
+                    with col5:
+                        st.markdown(f"NT$ {record['amount']}")
+                    with col6:
+                        st.markdown(f"{record.get('location', '')}")
+                    with col7:
+                        st.markdown(f"{record.get('buyer', '')}")
+                    with col8:
+                        # 刪除按鈕
+                        if st.button("🗑️", key=f"del_{record_id}", help="刪除此記錄"):
+                            # 根據ID刪除記錄
+                            st.session_state.accounting_records = [
+                                r for r in st.session_state.accounting_records 
+                                if r.get('id', f'legacy_{st.session_state.accounting_records.index(r)}') != record_id
+                            ]
+                            save_accounting_data()
+                            st.success("記錄已刪除")
+                            st.rerun()
+                
+                # 添加分隔線
+                st.markdown("---")
+        
+        else:  # 月報表模式
+            st.markdown("#### 月報表")
+            
+            # 選擇月份
+            if st.session_state.accounting_records:
+                # 獲取所有記錄的年份和月份
+                all_dates = []
+                for record in st.session_state.accounting_records:
+                    date_str = record.get('date', record.get('datetime', ''))
+                    if 'T' in date_str:  # 如果是datetime格式，只取日期部分
+                        date_str = date_str.split('T')[0]
+                    all_dates.append(datetime.fromisoformat(date_str))
+                years = sorted(list(set(date.year for date in all_dates)), reverse=True)
+                months = sorted(list(set(date.month for date in all_dates)), reverse=True)
+                
+                col1, col2 = st.columns(2)
+                with col1:
+                    selected_year = st.selectbox("選擇年份", years, label_visibility="collapsed")
+                with col2:
+                    selected_month = st.selectbox("選擇月份", [m for m in months if datetime(selected_year, m, 1) in [datetime(date.year, date.month, 1) for date in all_dates]], label_visibility="collapsed")
+                
+                # 篩選該月份的記錄
+                month_records = []
+                for record in st.session_state.accounting_records:
+                    date_str = record.get('date', record.get('datetime', ''))
+                    if 'T' in date_str:  # 如果是datetime格式，只取日期部分
+                        date_str = date_str.split('T')[0]
+                    record_date = datetime.fromisoformat(date_str)
+                    if record_date.year == selected_year and record_date.month == selected_month:
+                        month_records.append(record)
+
+                if month_records:
+                    # 計算月度統計
+                    month_income = sum(record["amount"] for record in month_records if record["type"] == "收入")
+                    month_expense = sum(record["amount"] for record in month_records if record["type"] == "支出")
+                    month_net = month_income - month_expense
+                    
+                    # 顯示月度統計
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        st.metric("月收入", f"NT$ {month_income}")
+                    with col2:
+                        st.metric("月支出", f"NT$ {month_expense}")
+                    with col3:
+                        st.metric("月淨收入", f"NT$ {month_net}")
+                    
+                    # 顯示月度記錄表格
+                    st.markdown("**月度記錄：**")
+                    month_table_data = []
+                    for record in sorted(month_records, key=lambda x: x.get("date", x.get("datetime", "")), reverse=True):
+                        date_str = record.get('date', record.get('datetime', ''))
+                        if 'T' in date_str:  # 如果是datetime格式，只取日期部分
+                            date_str = date_str.split('T')[0]
+                        record_date = datetime.fromisoformat(date_str).strftime("%m-%d")
+                        type_icon = "💰" if record['type'] == "收入" else "💸"
+                        
+                        month_table_data.append({
+                            "日期": record_date,
+                            "類型": f"{type_icon} {record['type']}",
+                            "類別": record['category'],
+                            "細項": record['description'],
+                            "金額": f"NT$ {record['amount']}",
+                            "地點": record.get('location', ''),
+                            "購買人": record.get('buyer', '')
+                        })
+                    
+                    if month_table_data:
+                        df_month = pd.DataFrame(month_table_data)
+                        st.dataframe(
+                            df_month,
+                            use_container_width=True,
+                            hide_index=True
+                        )
+                else:
+                    st.info(f"{selected_year}年{selected_month}月沒有記帳記錄")
+            else:
+                st.info("尚未有任何記帳記錄")
     
-    # 批量操作
-    if st.session_state.accounting_records:
+    # 批量操作（只在記帳記錄模式顯示）
+    if st.session_state.accounting_records and display_mode == "記帳記錄":
         st.markdown("---")
         st.markdown("#### 批量操作")
         
@@ -848,7 +966,7 @@ st.markdown("---")
 st.markdown(
     """
     <div style='text-align: center; color: #666; font-size: 0.9em;'>
-        <p>Gwen 的材料成本計算器 | 簡潔高效的食材管理工具</p>
+        <p>Gwen 的材料成本計算器 | 簡潔高效益的食材管理工具</p>
         <p style='font-size: 0.8em;'>單價請輸入每克的價格 | 資料會自動保存</p>
     </div>
     """,
