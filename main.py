@@ -14,7 +14,7 @@ def get_material_options(materials_dict):
 
 # 設定頁面配置
 st.set_page_config(
-    page_title="Gwen的材料成本計算",
+    page_title="🩵MEAT BOBO💙",
     page_icon="💰",
     layout="wide",
     initial_sidebar_state="collapsed"
@@ -117,6 +117,7 @@ def load_saved_materials():
             return {}
     return {}
 
+
 # 儲存材料資料
 def save_materials_data():
     try:
@@ -126,6 +127,7 @@ def save_materials_data():
     except Exception as e:
         st.error(f"儲存材料資料時發生錯誤：{e}")
 
+ 
 # 載入已儲存的食譜資料
 def load_saved_recipes():
     if os.path.exists('saved_recipes.json'):
@@ -141,6 +143,7 @@ def load_saved_recipes():
             return {}
     return {}
 
+
 # 儲存食譜資料
 def save_recipes_data():
     try:
@@ -148,6 +151,7 @@ def save_recipes_data():
             json.dump(st.session_state.saved_recipes, f, ensure_ascii=False, indent=2)
     except Exception as e:
         st.error(f"儲存食譜資料時發生錯誤：{e}")
+
 
 # 載入記帳資料
 def load_accounting_data():
@@ -169,6 +173,7 @@ def load_accounting_data():
             return []
     return []
 
+
 # 儲存記帳資料
 def save_accounting_data():
     try:
@@ -177,9 +182,11 @@ def save_accounting_data():
     except Exception as e:
         st.error(f"儲存記帳資料時發生錯誤：{e}")
 
+
 # 載入已儲存的材料
 if not st.session_state.saved_materials:
     st.session_state.saved_materials = load_saved_materials()
+
 
 # 載入已儲存的食譜
 if not st.session_state.saved_recipes:
@@ -192,7 +199,7 @@ if not st.session_state.accounting_records:
 # 標題
 st.markdown("""
 <div class="main-header">
-    <h1>Gwen 的材料成本計算器</h1>
+    <h1>🩵MEAT BOBO💙</h1>
 </div>
 """, unsafe_allow_html=True)
 
@@ -234,6 +241,8 @@ with st.sidebar:
             for material in recent_materials:
                 st.markdown(f"• {material}")
     
+
+    
     # 新增資料匯出功能
     # st.markdown("---")
     # st.markdown("### 📤 資料匯出")
@@ -244,11 +253,11 @@ with st.sidebar:
     #         "recipes": st.session_state.saved_recipes,
     #         "accounting": st.session_state.accounting_records
     #     }
-
+        
     #     # 轉換為 JSON 字串
     #     import json
     #     json_str = json.dumps(download_data, ensure_ascii=False, indent=2)
-
+        
     #     # 提供下載
     #     st.download_button(
     #         label="💾 下載資料檔案",
@@ -256,7 +265,7 @@ with st.sidebar:
     #         file_name="streamlit_data_backup.json",
     #         mime="application/json"
     #     )
-
+    
     # # 資料匯入功能
     # st.markdown("### 📥 資料匯入")
     # uploaded_file = st.file_uploader(
@@ -264,7 +273,7 @@ with st.sidebar:
     #     type=['json'],
     #     key="upload_data"
     # )
-
+    
     # if uploaded_file is not None:
     #     try:
     #         # 讀取上傳的檔案
@@ -290,7 +299,7 @@ with st.sidebar:
     #     except Exception as e:
     #         st.error(f"❌ 匯入失敗：{e}")
     
-    # st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
 
 # 根據選擇的頁面顯示不同內容
 if st.session_state.current_page == "成本計算":
@@ -406,15 +415,15 @@ if st.session_state.current_page == "成本計算":
                         "price": price,
                         "cost": material_cost
                     }
-            
-                            
-            
+
+
+
             # 檢查是否有輸入克數
             has_weight_input = any(st.session_state.material_weights.get(material, 0.0) > 0 for material in selected_materials)
-            
+
             if not has_weight_input:
                 st.error("⚠️ 請至少為一個材料輸入克數！")
-            
+
             # 計算按鈕和食譜保存
             if st.button("計算總成本", type="primary", use_container_width=True):
                 # 重新檢查是否有輸入克數（因為用戶可能在點擊按鈕前才輸入）
@@ -517,12 +526,12 @@ if st.session_state.current_page == "成本計算":
                         st.session_state.saved_recipe_name = recipe_name
                         st.rerun()
                 else:
-                    st.info("請先輸入食譜名稱才能保存")
+                    st.info("先輸入食譜名稱才能保存")
     else:
         st.markdown("""
         <div class="warning-message">
             <h4>尚未新增材料</h4>
-            <p>請先在「材料管理」頁面新增您常用的材料。</p>
+            <p>先在「材料管理」頁面新增常用的材料！</p>
         </div>
         """, unsafe_allow_html=True)
 
@@ -758,6 +767,14 @@ elif st.session_state.current_page == "記帳區":
                 label_visibility="visible"
             )
             
+            # 備註（非必填）
+            remark = st.text_area(
+                "備註",
+                placeholder="額外說明（非必填）...",
+                label_visibility="visible",
+                height=80
+            )
+            
             submitted = st.form_submit_button("新增記帳", type="primary", use_container_width=True)
             if submitted:
                 if description and amount > 0 and category:
@@ -774,6 +791,7 @@ elif st.session_state.current_page == "記帳區":
                         "amount": amount,
                         "location": location,
                         "buyer": buyer,
+                        "remark": remark,
                         "created_at": datetime.now().isoformat()
                     }
                     st.session_state.accounting_records.append(record)
@@ -811,7 +829,7 @@ elif st.session_state.current_page == "記帳區":
         # 選擇顯示模式
         display_mode = st.radio(
             "顯示模式",
-            ["記帳記錄", "月報表", "購買人分析"],
+            ["記帳記錄", "購買人紀錄"],
             horizontal=True,
             label_visibility="collapsed"
         )
@@ -819,14 +837,113 @@ elif st.session_state.current_page == "記帳區":
         if display_mode == "記帳記錄":
             st.markdown("#### 記帳記錄")
             
+            # 記錄類型篩選
+            record_filter = st.radio(
+                "記錄類型",
+                ["全部記錄", "總收入紀錄", "總支出紀錄"],
+                horizontal=True,
+                label_visibility="collapsed"
+            )
+            
+            # 根據篩選條件過濾記錄
+            filtered_records = st.session_state.accounting_records
+            if record_filter == "總收入紀錄":
+                filtered_records = [r for r in st.session_state.accounting_records if r["type"] == "收入"]
+            elif record_filter == "總支出紀錄":
+                filtered_records = [r for r in st.session_state.accounting_records if r["type"] == "支出"]
+            
+            # 日期篩選
+            if filtered_records:
+                # 獲取所有記錄的日期
+                all_dates = []
+                for record in filtered_records:
+                    date_str = record.get('date', record.get('datetime', ''))
+                    if 'T' in date_str:  # 如果是datetime格式，只取日期部分
+                        date_str = date_str.split('T')[0]
+                    all_dates.append(datetime.fromisoformat(date_str))
+                
+                # 日期選擇模式
+                date_mode = st.radio(
+                    "日期篩選",
+                    ["全部日期", "選擇月份", "選擇日期範圍"],
+                    horizontal=True,
+                    label_visibility="collapsed"
+                )
+                
+                if date_mode == "選擇月份":
+                    years = sorted(list(set(date.year for date in all_dates)), reverse=True)
+                    months = sorted(list(set(date.month for date in all_dates)), reverse=True)
+                    
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        selected_year = st.selectbox("選擇年份", years, label_visibility="collapsed")
+                    with col2:
+                        selected_month = st.selectbox("選擇月份", [m for m in months if datetime(selected_year, m, 1) in [datetime(date.year, date.month, 1) for date in all_dates]], label_visibility="collapsed")
+                    
+                    # 篩選該月份的記錄
+                    month_records = []
+                    for record in filtered_records:
+                        date_str = record.get('date', record.get('datetime', ''))
+                        if 'T' in date_str:  # 如果是datetime格式，只取日期部分
+                            date_str = date_str.split('T')[0]
+                        record_date = datetime.fromisoformat(date_str)
+                        if record_date.year == selected_year and record_date.month == selected_month:
+                            month_records.append(record)
+                    
+                    filtered_records = month_records
+                    period_title = f"{selected_year}年{selected_month}月"
+                    
+                elif date_mode == "選擇日期範圍":
+                    min_date = min(all_dates).date()
+                    max_date = max(all_dates).date()
+                    
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        start_date = st.date_input("開始日期", value=min_date, min_value=min_date, max_value=max_date, label_visibility="collapsed")
+                    with col2:
+                        end_date = st.date_input("結束日期", value=max_date, min_value=min_date, max_value=max_date, label_visibility="collapsed")
+                    
+                    # 篩選日期範圍內的記錄
+                    date_range_records = []
+                    for record in filtered_records:
+                        date_str = record.get('date', record.get('datetime', ''))
+                        if 'T' in date_str:  # 如果是datetime格式，只取日期部分
+                            date_str = date_str.split('T')[0]
+                        record_date = datetime.fromisoformat(date_str).date()
+                        if start_date <= record_date <= end_date:
+                            date_range_records.append(record)
+                    
+                    filtered_records = date_range_records
+                    period_title = f"{start_date} 至 {end_date}"
+                else:
+                    period_title = "全部日期"
+            
             # 按日期排序（最新的在前）
-            sorted_records = sorted(st.session_state.accounting_records, 
+            sorted_records = sorted(filtered_records, 
                                   key=lambda x: x.get("date", x.get("datetime", "")), reverse=True)
+            
+            # 顯示統計資訊
+            if sorted_records:
+                # 計算統計
+                period_income = sum(record["amount"] for record in sorted_records if record["type"] == "收入")
+                period_expense = sum(record["amount"] for record in sorted_records if record["type"] == "支出")
+                period_net = period_income - period_expense
+                
+                # 顯示統計
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric("收入", f"NT$ {period_income}")
+                with col2:
+                    st.metric("支出", f"NT$ {period_expense}")
+                with col3:
+                    st.metric("淨收入", f"NT$ {period_net}")
+                
+                st.markdown(f"**{period_title}記錄：**")
             
             # 顯示記帳記錄（每行都有刪除按鈕）
             # 表頭
             with st.container():
-                col1, col2, col3, col4, col5, col6, col7, col8 = st.columns([1, 1, 1, 2, 1, 1, 1, 1])
+                col1, col2, col3, col4, col5, col6, col7, col8, col9 = st.columns([1, 1, 1, 2, 1, 1, 1, 1, 1])
                 
                 with col1:
                     st.markdown("**日期**")
@@ -843,6 +960,8 @@ elif st.session_state.current_page == "記帳區":
                 with col7:
                     st.markdown("**購買人**")
                 with col8:
+                    st.markdown("**備註**")
+                with col9:
                     st.markdown("**操作**")
             
             st.markdown("---")
@@ -858,7 +977,7 @@ elif st.session_state.current_page == "記帳區":
                 
                 # 創建記錄行
                 with st.container():
-                    col1, col2, col3, col4, col5, col6, col7, col8 = st.columns([1, 1, 1, 2, 1, 1, 1, 1])
+                    col1, col2, col3, col4, col5, col6, col7, col8, col9 = st.columns([1, 1, 1, 2, 1, 1, 1, 1, 1])
                     
                     with col1:
                         st.markdown(f"**{record_date}**")
@@ -875,6 +994,8 @@ elif st.session_state.current_page == "記帳區":
                     with col7:
                         st.markdown(f"{record.get('buyer', '')}")
                     with col8:
+                        st.markdown(f"{record.get('remark', '')}")
+                    with col9:
                         # 刪除按鈕
                         if st.button("🗑️", key=f"del_{record_id}", help="刪除此記錄"):
                             # 根據ID刪除記錄
@@ -889,93 +1010,16 @@ elif st.session_state.current_page == "記帳區":
                 # 添加分隔線
                 st.markdown("---")
         
-        elif display_mode == "月報表":
-            st.markdown("#### 月報表")
+        else:  # 購買人紀錄
+            st.markdown("#### 購買人紀錄")
             
-            # 選擇月份
-            if st.session_state.accounting_records:
-                # 獲取所有記錄的年份和月份
-                all_dates = []
-                for record in st.session_state.accounting_records:
-                    date_str = record.get('date', record.get('datetime', ''))
-                    if 'T' in date_str:  # 如果是datetime格式，只取日期部分
-                        date_str = date_str.split('T')[0]
-                    all_dates.append(datetime.fromisoformat(date_str))
-                years = sorted(list(set(date.year for date in all_dates)), reverse=True)
-                months = sorted(list(set(date.month for date in all_dates)), reverse=True)
-                
-                col1, col2 = st.columns(2)
-                with col1:
-                    selected_year = st.selectbox("選擇年份", years, label_visibility="collapsed")
-                with col2:
-                    selected_month = st.selectbox("選擇月份", [m for m in months if datetime(selected_year, m, 1) in [datetime(date.year, date.month, 1) for date in all_dates]], label_visibility="collapsed")
-                
-                # 篩選該月份的記錄
-                month_records = []
-                for record in st.session_state.accounting_records:
-                    date_str = record.get('date', record.get('datetime', ''))
-                    if 'T' in date_str:  # 如果是datetime格式，只取日期部分
-                        date_str = date_str.split('T')[0]
-                    record_date = datetime.fromisoformat(date_str)
-                    if record_date.year == selected_year and record_date.month == selected_month:
-                        month_records.append(record)
-
-                if month_records:
-                    # 計算月度統計
-                    month_income = sum(record["amount"] for record in month_records if record["type"] == "收入")
-                    month_expense = sum(record["amount"] for record in month_records if record["type"] == "支出")
-                    month_net = month_income - month_expense
-                    
-                    # 顯示月度統計
-                    col1, col2, col3 = st.columns(3)
-                    with col1:
-                        st.metric("月收入", f"NT$ {month_income}")
-                    with col2:
-                        st.metric("月支出", f"NT$ {month_expense}")
-                    with col3:
-                        st.metric("月淨收入", f"NT$ {month_net}")
-                    
-                    # 顯示月度記錄表格
-                    st.markdown("**月度記錄：**")
-                    month_table_data = []
-                    for record in sorted(month_records, key=lambda x: x.get("date", x.get("datetime", "")), reverse=True):
-                        date_str = record.get('date', record.get('datetime', ''))
-                        if 'T' in date_str:  # 如果是datetime格式，只取日期部分
-                            date_str = date_str.split('T')[0]
-                        record_date = datetime.fromisoformat(date_str).strftime("%m-%d")
-                        type_icon = "💰" if record['type'] == "收入" else "💸"
-                        
-                        month_table_data.append({
-                            "日期": record_date,
-                            "類型": f"{type_icon} {record['type']}",
-                            "類別": record['category'],
-                            "細項": record['description'],
-                            "金額": f"NT$ {record['amount']}",
-                            "地點": record.get('location', ''),
-                            "購買人": record.get('buyer', '')
-                        })
-                    
-                    if month_table_data:
-                        df_month = pd.DataFrame(month_table_data)
-                        st.dataframe(
-                            df_month,
-                            use_container_width=True,
-                            hide_index=True
-                        )
-                else:
-                    st.info(f"{selected_year}年{selected_month}月沒有記帳記錄")
-            else:
-                st.info("尚未有任何記帳記錄")
-        
-        elif display_mode == "購買人分析":
-            st.markdown("#### 購買人分析")
-            
-            # 獲取所有購買人
+            # 獲取所有購買人（只從支出記錄中）
             all_buyers = set()
             for record in st.session_state.accounting_records:
-                buyer = record.get('buyer', '')
-                if buyer:  # 只包含有購買人的記錄
-                    all_buyers.add(buyer)
+                if record["type"] == "支出":  # 只包含支出記錄
+                    buyer = record.get('buyer', '')
+                    if buyer:  # 只包含有購買人的記錄
+                        all_buyers.add(buyer)
             
             if all_buyers:
                 # 選擇購買人
@@ -985,29 +1029,23 @@ elif st.session_state.current_page == "記帳區":
                     label_visibility="collapsed"
                 )
                 
-                # 篩選該購買人的記錄
+                # 篩選該購買人的支出記錄
                 buyer_records = [
                     record for record in st.session_state.accounting_records 
-                    if record.get('buyer', '') == selected_buyer
+                    if record.get('buyer', '') == selected_buyer and record["type"] == "支出"
                 ]
                 
                 if buyer_records:
-                    # 計算購買人統計
-                    buyer_total_income = sum(record["amount"] for record in buyer_records if record["type"] == "收入")
-                    buyer_total_expense = sum(record["amount"] for record in buyer_records if record["type"] == "支出")
-                    buyer_net = buyer_total_income - buyer_total_expense
+                    # 計算購買人統計（只計算支出）
+                    buyer_total_expense = sum(record["amount"] for record in buyer_records)
                     buyer_record_count = len(buyer_records)
                     
                     # 顯示購買人統計
-                    col1, col2, col3, col4 = st.columns(4)
+                    col1, col2 = st.columns(2)
                     with col1:
-                        st.metric("總記錄數", buyer_record_count)
+                        st.metric("購買次數", buyer_record_count)
                     with col2:
-                        st.metric("總收入", f"NT$ {buyer_total_income}")
-                    with col3:
                         st.metric("總支出", f"NT$ {buyer_total_expense}")
-                    with col4:
-                        st.metric("淨收入", f"NT$ {buyer_net}")
                     
                     # 按類別統計
                     st.markdown("---")
@@ -1017,15 +1055,11 @@ elif st.session_state.current_page == "記帳區":
                     for record in buyer_records:
                         category = record['category']
                         amount = record['amount']
-                        record_type = record['type']
                         
                         if category not in category_stats:
-                            category_stats[category] = {'income': 0, 'expense': 0, 'count': 0}
+                            category_stats[category] = {'expense': 0, 'count': 0}
                         
-                        if record_type == "收入":
-                            category_stats[category]['income'] += amount
-                        else:
-                            category_stats[category]['expense'] += amount
+                        category_stats[category]['expense'] += amount
                         category_stats[category]['count'] += 1
                     
                     # 顯示類別統計表格
@@ -1033,10 +1067,8 @@ elif st.session_state.current_page == "記帳區":
                     for category, stats in category_stats.items():
                         category_data.append({
                             "類別": category,
-                            "記錄數": stats['count'],
-                            "收入": f"NT$ {stats['income']}",
-                            "支出": f"NT$ {stats['expense']}",
-                            "淨額": f"NT$ {stats['income'] - stats['expense']}"
+                            "購買次數": stats['count'],
+                            "支出金額": f"NT$ {stats['expense']}"
                         })
                     
                     if category_data:
@@ -1052,24 +1084,14 @@ elif st.session_state.current_page == "記帳區":
                     st.markdown("#### 詳細記錄")
                     
                     # 篩選選項
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        filter_type = st.selectbox(
-                            "篩選類型",
-                            ["全部", "收入", "支出"],
-                            label_visibility="collapsed"
-                        )
-                    with col2:
-                        filter_category = st.selectbox(
-                            "篩選類別",
-                            ["全部"] + sorted(list(set(record['category'] for record in buyer_records))),
-                            label_visibility="collapsed"
-                        )
+                    filter_category = st.selectbox(
+                        "篩選類別",
+                        ["全部"] + sorted(list(set(record['category'] for record in buyer_records))),
+                        label_visibility="collapsed"
+                    )
                     
                     # 應用篩選
                     filtered_records = buyer_records
-                    if filter_type != "全部":
-                        filtered_records = [r for r in filtered_records if r['type'] == filter_type]
                     if filter_category != "全部":
                         filtered_records = [r for r in filtered_records if r['category'] == filter_category]
                     
@@ -1090,11 +1112,11 @@ elif st.session_state.current_page == "記帳區":
                             
                             filtered_table_data.append({
                                 "日期": record_date,
-                                "類型": f"{type_icon} {record['type']}",
                                 "類別": record['category'],
                                 "細項": record['description'],
                                 "金額": f"NT$ {record['amount']}",
-                                "地點": record.get('location', '')
+                                "地點": record.get('location', ''),
+                                "備註": record.get('remark', '')
                             })
                         
                         df_filtered = pd.DataFrame(filtered_table_data)
@@ -1105,17 +1127,13 @@ elif st.session_state.current_page == "記帳區":
                         )
                         
                         # 顯示篩選統計
-                        filtered_income = sum(record["amount"] for record in filtered_records if record["type"] == "收入")
-                        filtered_expense = sum(record["amount"] for record in filtered_records if record["type"] == "支出")
-                        filtered_net = filtered_income - filtered_expense
+                        filtered_expense = sum(record["amount"] for record in filtered_records)
                         
-                        col1, col2, col3 = st.columns(3)
+                        col1, col2 = st.columns(2)
                         with col1:
-                            st.metric("篩選收入", f"NT$ {filtered_income}")
+                            st.metric("篩選次數", len(filtered_records))
                         with col2:
                             st.metric("篩選支出", f"NT$ {filtered_expense}")
-                        with col3:
-                            st.metric("篩選淨額", f"NT$ {filtered_net}")
                     else:
                         st.info("沒有符合篩選條件的記錄")
                 else:
@@ -1174,14 +1192,3 @@ elif st.session_state.current_page == "記帳區":
 
 # 頁腳
 st.markdown('</div>', unsafe_allow_html=True)
-
-st.markdown("---")
-st.markdown(
-    """
-    <div style='text-align: center; color: #666; font-size: 0.9em;'>
-        <p>Gwen 的材料成本計算器 | 簡潔高效益的食材管理工具</p>
-        <p style='font-size: 0.8em;'>單價請輸入每克的價格 | 資料會自動保存</p>
-    </div>
-    """,
-    unsafe_allow_html=True
-)
