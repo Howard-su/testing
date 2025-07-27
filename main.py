@@ -293,7 +293,7 @@ with st.sidebar:
     st.markdown('</div>', unsafe_allow_html=True)
 
 # 根據選擇的頁面顯示不同內容
-if st.session_state.current_page == "成本計算-測試版":
+if st.session_state.current_page == "成本計算":
     # 成本計算頁面
     st.markdown("### 成本計算", help="選擇多個材料並計算總成本")
     
