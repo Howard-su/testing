@@ -82,6 +82,8 @@ if 'selected_materials' not in st.session_state:
     st.session_state.selected_materials = []
 if 'material_weights' not in st.session_state:
     st.session_state.material_weights = {}
+if 'material_yield_rates' not in st.session_state:
+    st.session_state.material_yield_rates = {}
 if 'show_save_success' not in st.session_state:
     st.session_state.show_save_success = False
 if 'saved_recipe_name' not in st.session_state:
@@ -397,23 +399,56 @@ if st.session_state.current_page == "成本計算":
                         placeholder="克數"
                     )
                     
+                    # 輸入熟成率（可選）
+                    current_yield_rate = st.session_state.material_yield_rates.get(
+                        material, ""
+                    )
+                    help_text = (f"請輸入 {material} 的熟成率（例如：0.8 表示 80%），"
+                                f"留空則不計算熟成率")
+                    yield_rate = st.text_input(
+                        f"{material} 熟成率", 
+                        value=current_yield_rate,
+                        key=f"yield_rate_{material}",
+                        help=help_text,
+                        label_visibility="collapsed",
+                        placeholder="熟成率（可選）"
+                    )
+                    
                     # 轉換為數字
                     try:
                         weight = float(weight) if weight else 0.0
                     except ValueError:
                         weight = 0.0
                     
+                    try:
+                        yield_rate = float(yield_rate) if yield_rate else None
+                    except ValueError:
+                        yield_rate = None
+                    
                     # 只在重量改變時更新session state
                     if weight != current_weight:
                         st.session_state.material_weights[material] = weight
                     
-                    # 計算單個材料成本
-                    material_cost = weight * price
+                    # 只在熟成率改變時更新session state
+                    if yield_rate != current_yield_rate:
+                        st.session_state.material_yield_rates[material] = yield_rate if yield_rate is not None else ""
+                    
+                    # 計算單個材料成本（考慮熟成率）
+                    if yield_rate is not None and yield_rate > 0:
+                        # 使用熟成率計算：重量 / 熟成率 * 單價
+                        adjusted_weight = weight / yield_rate
+                        material_cost = adjusted_weight * price
+                    else:
+                        # 原本的計算：重量 * 單價
+                        material_cost = weight * price
+                    
                     total_cost += material_cost
                     recipe_materials[material] = {
                         "weight": weight,
                         "price": price,
-                        "cost": material_cost
+                        "cost": material_cost,
+                        "yield_rate": yield_rate,
+                        "adjusted_weight": weight / yield_rate if yield_rate is not None and yield_rate > 0 else weight
                     }
 
 
@@ -459,23 +494,48 @@ if st.session_state.current_page == "成本計算":
                     with st.container():
                         st.markdown('<div class="small-metric">', unsafe_allow_html=True)
                         for material, data in recipe_materials.items():
-                            col1_result, col2_result, col3_result, col4_result = st.columns(4)
-                            with col1_result:
-                                st.metric("材料", material)
-                            with col2_result:
-                                st.metric("重量", f"{data['weight']:.1f} g")
-                            with col3_result:
-                                price_display = data['price']
-                                if price_display == int(price_display):
-                                    price_display = int(price_display)
-                                st.metric("單價", f"NT$ {price_display}")
-                            with col4_result:
-                                cost_display = data['cost']
-                                if cost_display == int(cost_display):
-                                    cost_display = int(cost_display)
-                                else:
-                                    cost_display = f"{data['cost']:.2f}"
-                                st.metric("成本", f"NT$ {cost_display}")
+                            # 如果有熟成率，顯示更多資訊
+                            if data['yield_rate'] is not None and data['yield_rate'] > 0:
+                                col1_result, col2_result, col3_result, col4_result, col5_result = st.columns(5)
+                                with col1_result:
+                                    st.metric("材料", material)
+                                with col2_result:
+                                    st.metric("重量", f"{data['weight']:.1f} g")
+                                with col3_result:
+                                    st.metric("熟成率", f"{data['yield_rate']:.2f}")
+                                with col4_result:
+                                    price_display = data['price']
+                                    if price_display == int(price_display):
+                                        price_display = int(price_display)
+                                    st.metric("單價", f"NT$ {price_display}")
+                                with col5_result:
+                                    cost_display = data['cost']
+                                    if cost_display == int(cost_display):
+                                        cost_display = int(cost_display)
+                                    else:
+                                        cost_display = f"{data['cost']:.2f}"
+                                    st.metric("成本", f"NT$ {cost_display}")
+                                
+                                # 顯示調整後的重量
+                                st.markdown(f"**{material}** 調整後重量：{data['adjusted_weight']:.1f} g (原重量 ÷ 熟成率)")
+                            else:
+                                col1_result, col2_result, col3_result, col4_result = st.columns(4)
+                                with col1_result:
+                                    st.metric("材料", material)
+                                with col2_result:
+                                    st.metric("重量", f"{data['weight']:.1f} g")
+                                with col3_result:
+                                    price_display = data['price']
+                                    if price_display == int(price_display):
+                                        price_display = int(price_display)
+                                    st.metric("單價", f"NT$ {price_display}")
+                                with col4_result:
+                                    cost_display = data['cost']
+                                    if cost_display == int(cost_display):
+                                        cost_display = int(cost_display)
+                                    else:
+                                        cost_display = f"{data['cost']:.2f}"
+                                    st.metric("成本", f"NT$ {cost_display}")
                         st.markdown('</div>', unsafe_allow_html=True)
                     
                     st.markdown("---")
@@ -582,33 +642,39 @@ elif st.session_state.current_page == "材料管理":
         st.markdown("#### 已儲存材料")
 
         if st.session_state.saved_materials:
-            # 材料列表
-            for i, (material, price) in enumerate(st.session_state.saved_materials.items()):
-                price_display = price
-                if price_display == int(price_display):
-                    price_display = int(price_display)
+            # 顯示材料數量
+            material_count = len(st.session_state.saved_materials)
+            st.info(f"📦 已儲存 {material_count} 個材料")
+            
+            # 使用可展開容器顯示材料列表
+            with st.expander(f"📋 查看所有材料 ({material_count} 個)", expanded=False):
+                # 材料列表
+                for i, (material, price) in enumerate(st.session_state.saved_materials.items()):
+                    price_display = price
+                    if price_display == int(price_display):
+                        price_display = int(price_display)
 
-                with st.container():
-                    st.markdown(f"""
-                    <div class="material-item">
-                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <div>
-                                <strong>{material}</strong><br>
-                                <small>NT$ {price_display} / 1g</small>
-                            </div>
-                            <div>
-                                <button onclick="deleteMaterial('{material}')" style="background: #dc3545; color: white; border: none; border-radius: 4px; padding: 4px 8px; cursor: pointer;">刪除</button>
+                    with st.container():
+                        st.markdown(f"""
+                        <div class="material-item">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <div>
+                                    <strong>{material}</strong><br>
+                                    <small>NT$ {price_display} / 1g</small>
+                                </div>
+                                <div>
+                                    <button onclick="deleteMaterial('{material}')" style="background: #dc3545; color: white; border: none; border-radius: 4px; padding: 4px 8px; cursor: pointer;">刪除</button>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                    """, unsafe_allow_html=True)
-                    
-                    # 實際的刪除按鈕（隱藏）
-                    if st.button("刪除", key=f"del_{material}", help=f"刪除 {material}"):
-                        del st.session_state.saved_materials[material]
-                        save_materials_data()
-                        st.success(f"已刪除 {material}")
-                        st.rerun()
+                        """, unsafe_allow_html=True)
+                        
+                        # 實際的刪除按鈕（隱藏）
+                        if st.button("刪除", key=f"del_{material}", help=f"刪除 {material}"):
+                            del st.session_state.saved_materials[material]
+                            save_materials_data()
+                            st.success(f"已刪除 {material}")
+                            st.rerun()
         else:
             st.markdown("""
             <div class="warning-message">
