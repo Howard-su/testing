@@ -349,13 +349,21 @@ if st.session_state.current_page == "成本計算":
 
             with col_select_all:
                 if st.button("全選", use_container_width=True, key="select_all_btn"):
-                    st.session_state.selected_materials = material_options.copy()
-                    st.rerun()
+                    if st.session_state.selected_materials == material_options:
+                        st.info("✅ 已經是全選狀態")
+                    else:
+                        st.session_state.selected_materials = material_options.copy()
+                        st.success("✅ 已全選所有材料")
+                        st.rerun()
 
             with col_clear_all:
                 if st.button("清除選擇", use_container_width=True, key="clear_all_btn"):
-                    st.session_state.selected_materials = []
-                    st.rerun()
+                    if not st.session_state.selected_materials:
+                        st.info("✅ 已經沒有選擇任何材料")
+                    else:
+                        st.session_state.selected_materials = []
+                        st.success("✅ 已清除所有選擇")
+                        st.rerun()
 
         if selected_materials:
             st.markdown("---")
@@ -466,6 +474,7 @@ if st.session_state.current_page == "成本計算":
                 if not current_has_weight:
                     st.error("⚠️ 請至少為一個材料輸入克數！")
                 else:
+                    st.success("✅ 開始計算總成本...")
                     # 顯示計算結果
                     st.markdown("---")
                     st.markdown("### 計算結果")
@@ -572,6 +581,10 @@ if st.session_state.current_page == "成本計算":
                 # 保存按鈕
                 if recipe_name:
                     if st.button("保存食譜", type="secondary", use_container_width=True, key="save_recipe_btn"):
+                        # 檢查是否已存在同名食譜
+                        if recipe_name in st.session_state.saved_recipes:
+                            st.warning(f"⚠️ 食譜「{recipe_name}」已存在，將覆蓋原有食譜")
+                        
                         # 保存食譜
                         recipe_data = {
                             "materials": recipe_materials,
@@ -584,6 +597,7 @@ if st.session_state.current_page == "成本計算":
                         # 設置成功狀態
                         st.session_state.show_save_success = True
                         st.session_state.saved_recipe_name = recipe_name
+                        st.success(f"✅ 食譜「{recipe_name}」保存成功！")
                         st.rerun()
                 else:
                     st.info("先輸入食譜名稱才能保存")
@@ -669,11 +683,13 @@ elif st.session_state.current_page == "材料管理":
                         </div>
                         """, unsafe_allow_html=True)
                         
-                        # 實際的刪除按鈕（隱藏）
-                        if st.button("刪除", key=f"del_{material}", help=f"刪除 {material}"):
+                                            # 實際的刪除按鈕（隱藏）
+                    if st.button("刪除", key=f"del_{material}", help=f"刪除 {material}"):
+                        st.warning(f"⚠️ 確定要刪除材料「{material}」嗎？")
+                        if st.button("確認刪除", key=f"confirm_del_{material}", help=f"確認刪除 {material}"):
                             del st.session_state.saved_materials[material]
                             save_materials_data()
-                            st.success(f"已刪除 {material}")
+                            st.success(f"✅ 已刪除材料「{material}」")
                             st.rerun()
         else:
             st.markdown("""
@@ -688,12 +704,15 @@ elif st.session_state.current_page == "材料管理":
         st.markdown("#### 批量操作")
         
         if st.button("清除所有材料", type="secondary", use_container_width=True):
-            st.session_state.saved_materials = {}
-            save_materials_data()
-            st.success("已清除所有材料")
-            st.rerun()
+            st.warning("⚠️ 確定要清除所有材料嗎？此操作無法復原！")
+            if st.button("確認清除所有材料", type="secondary", use_container_width=True):
+                st.session_state.saved_materials = {}
+                save_materials_data()
+                st.success("✅ 已清除所有材料")
+                st.rerun()
         
         if st.button("切換到成本計算", use_container_width=True):
+            st.info("🔄 正在切換到成本計算頁面...")
             st.session_state.current_page = "成本計算"
             st.rerun()
 
@@ -748,6 +767,7 @@ elif st.session_state.current_page == "食譜區":
                 col_use, col_delete = st.columns(2)
                 with col_use:
                     if st.button("使用此食譜", key=f"use_{recipe_name}", use_container_width=True):
+                        st.info(f"🔄 正在載入食譜「{recipe_name}」...")
                         # 將食譜材料載入到成本計算頁面
                         st.session_state.selected_materials = list(recipe_data['materials'].keys())
                         st.session_state.material_weights = {
@@ -755,14 +775,17 @@ elif st.session_state.current_page == "食譜區":
                             for material, data in recipe_data['materials'].items()
                         }
                         st.session_state.current_page = "成本計算"
+                        st.success(f"✅ 已載入食譜「{recipe_name}」到成本計算頁面")
                         st.rerun()
 
                 with col_delete:
                     if st.button("刪除食譜", key=f"del_recipe_{recipe_name}", use_container_width=True):
-                        del st.session_state.saved_recipes[recipe_name]
-                        save_recipes_data()
-                        st.success(f"已刪除食譜「{recipe_name}」")
-                        st.rerun()
+                        st.warning(f"⚠️ 確定要刪除食譜「{recipe_name}」嗎？此操作無法復原！")
+                        if st.button("確認刪除食譜", key=f"confirm_del_recipe_{recipe_name}", use_container_width=True):
+                            del st.session_state.saved_recipes[recipe_name]
+                            save_recipes_data()
+                            st.success(f"✅ 已刪除食譜「{recipe_name}」")
+                            st.rerun()
     else:
         st.markdown("""
         <div class="warning-message">
@@ -1064,14 +1087,16 @@ elif st.session_state.current_page == "記帳區":
                     with col9:
                         # 刪除按鈕
                         if st.button("🗑️", key=f"del_{record_id}", help="刪除此記錄"):
-                            # 根據ID刪除記錄
-                            st.session_state.accounting_records = [
-                                r for r in st.session_state.accounting_records 
-                                if r.get('id', f'legacy_{st.session_state.accounting_records.index(r)}') != record_id
-                            ]
-                            save_accounting_data()
-                            st.success("記錄已刪除")
-                            st.rerun()
+                            st.warning(f"⚠️ 確定要刪除這筆記錄嗎？")
+                            if st.button("確認刪除", key=f"confirm_del_{record_id}", help="確認刪除此記錄"):
+                                # 根據ID刪除記錄
+                                st.session_state.accounting_records = [
+                                    r for r in st.session_state.accounting_records 
+                                    if r.get('id', f'legacy_{st.session_state.accounting_records.index(r)}') != record_id
+                                ]
+                                save_accounting_data()
+                                st.success("✅ 記錄已刪除")
+                                st.rerun()
                 
                 # 添加分隔線
                 st.markdown("---")
@@ -1213,10 +1238,12 @@ elif st.session_state.current_page == "記帳區":
         st.markdown("#### 批量操作")
         
         if st.button("清除所有記錄", type="secondary", use_container_width=True):
-            st.session_state.accounting_records = []
-            save_accounting_data()
-            st.success("已清除所有記帳記錄")
-            st.rerun()
+            st.warning("⚠️ 確定要清除所有記帳記錄嗎？此操作無法復原！")
+            if st.button("確認清除所有記錄", type="secondary", use_container_width=True):
+                st.session_state.accounting_records = []
+                save_accounting_data()
+                st.success("✅ 已清除所有記帳記錄")
+                st.rerun()
     
     # 總收支總結
     if st.session_state.accounting_records:
