@@ -253,60 +253,60 @@ with st.sidebar:
 
     
     # 新增資料匯出功能
-    # st.markdown("---")
-    # st.markdown("### 📤 資料匯出")
-    # if st.button("📥 下載所有資料", key="download_btn"):
-    #     # 準備下載資料
-    #     download_data = {
-    #         "materials": st.session_state.saved_materials,
-    #         "recipes": st.session_state.saved_recipes,
-    #         "accounting": st.session_state.accounting_records
-    #     }
+    st.markdown("---")
+    st.markdown("### 📤 資料匯出")
+    if st.button("📥 下載所有資料", key="download_btn"):
+        # 準備下載資料
+        download_data = {
+            "materials": st.session_state.saved_materials,
+            "recipes": st.session_state.saved_recipes,
+            "accounting": st.session_state.accounting_records
+        }
         
-    #     # 轉換為 JSON 字串
-    #     import json
-    #     json_str = json.dumps(download_data, ensure_ascii=False, indent=2)
+        # 轉換為 JSON 字串
+        import json
+        json_str = json.dumps(download_data, ensure_ascii=False, indent=2)
         
-    #     # 提供下載
-    #     st.download_button(
-    #         label="💾 下載資料檔案",
-    #         data=json_str,
-    #         file_name="streamlit_data_backup.json",
-    #         mime="application/json"
-    #     )
+        # 提供下載
+        st.download_button(
+            label="💾 下載資料檔案",
+            data=json_str,
+            file_name="streamlit_data_backup.json",
+            mime="application/json"
+        )
     
-    # # 資料匯入功能
-    # st.markdown("### 📥 資料匯入")
-    # uploaded_file = st.file_uploader(
-    #     "選擇要匯入的資料檔案",
-    #     type=['json'],
-    #     key="upload_data"
-    # )
+    # 資料匯入功能
+    st.markdown("### 📥 資料匯入")
+    uploaded_file = st.file_uploader(
+        "選擇要匯入的資料檔案",
+        type=['json'],
+        key="upload_data"
+    )
     
-    # if uploaded_file is not None:
-    #     try:
-    #         # 讀取上傳的檔案
-    #         import json
-    #         uploaded_data = json.load(uploaded_file)
+    if uploaded_file is not None:
+        try:
+            # 讀取上傳的檔案
+            import json
+            uploaded_data = json.load(uploaded_file)
             
-    #         # 更新 session state
-    #         if 'materials' in uploaded_data:
-    #             st.session_state.saved_materials = uploaded_data['materials']
-    #             save_materials_data()
+            # 更新 session state
+            if 'materials' in uploaded_data:
+                st.session_state.saved_materials = uploaded_data['materials']
+                save_materials_data()
             
-    #         if 'recipes' in uploaded_data:
-    #             st.session_state.saved_recipes = uploaded_data['recipes']
-    #             save_recipes_data()
+            if 'recipes' in uploaded_data:
+                st.session_state.saved_recipes = uploaded_data['recipes']
+                save_recipes_data()
             
-    #         if 'accounting' in uploaded_data:
-    #             st.session_state.accounting_records = uploaded_data['accounting']
-    #             save_accounting_data()
+            if 'accounting' in uploaded_data:
+                st.session_state.accounting_records = uploaded_data['accounting']
+                save_accounting_data()
             
-    #         st.success("✅ 資料匯入成功！")
-    #         st.rerun()
+            st.success("✅ 資料匯入成功！")
+            st.rerun()
             
-    #     except Exception as e:
-    #         st.error(f"❌ 匯入失敗：{e}")
+        except Exception as e:
+            st.error(f"❌ 匯入失敗：{e}")
     
     st.markdown('</div>', unsafe_allow_html=True)
 
@@ -1559,7 +1559,7 @@ elif st.session_state.current_page == "記帳區":
                         
                         # 顯示篩選統計
                         filtered_expense = sum(record["amount"] for record in filtered_records)
-                        
+              
                         col1, col2 = st.columns(2)
                         with col1:
                             st.metric("篩選次數", len(filtered_records))
@@ -1571,12 +1571,12 @@ elif st.session_state.current_page == "記帳區":
                     st.info(f"沒有 {selected_buyer} 的購買記錄")
             else:
                 st.info("沒有購買人資料，請先在記帳時填寫購買人欄位")
-    
+
     # 批量操作（只在記帳記錄模式顯示）
     if st.session_state.accounting_records and display_mode == "記帳記錄":
         st.markdown("---")
         st.markdown("#### 批量操作")
-        
+
         if st.button("清除所有記錄", type="secondary", use_container_width=True, key="clear_all_records"):
             st.warning("⚠️ 確定要清除所有記帳記錄嗎？此操作無法復原！")
             col_confirm, col_cancel = st.columns(2)
@@ -1590,17 +1590,17 @@ elif st.session_state.current_page == "記帳區":
                 if st.button("取消", type="secondary", use_container_width=True, key="cancel_clear_all"):
                     st.info("❌ 已取消清除所有記錄")
                     st.rerun()
-    
+
     # 總收支總結
     if st.session_state.accounting_records:
         st.markdown("---")
         st.markdown("### 📊 總收支總結")
-        
+
         # 計算總收入和總支出
         total_income = sum(record["amount"] for record in st.session_state.accounting_records if record["type"] == "收入")
         total_expense = sum(record["amount"] for record in st.session_state.accounting_records if record["type"] == "支出")
         net_income = total_income - total_expense
-        
+
         # 顯示總結
         col1, col2, col3 = st.columns(3)
         with col1:
