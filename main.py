@@ -19,6 +19,17 @@ def get_material_options(materials_dict):
     """快取材料選項列表，避免重複計算"""
     return list(materials_dict.keys())
 
+# 載入自訂類別
+def load_custom_categories():
+    if os.path.exists('custom_categories.json'):
+        try:
+            with open('custom_categories.json', 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception as e:
+            st.error(f"載入自訂類別時發生錯誤：{e}")
+            return ["食材", "設備", "包裝", "運輸", "食譜", "其他"]
+    return ["食材", "設備", "包裝", "運輸", "食譜", "其他"]
+
 # 設定頁面配置
 st.set_page_config(
     page_title="🩵MEAT BOBO💙",
@@ -97,6 +108,14 @@ if 'saved_recipe_name' not in st.session_state:
     st.session_state.saved_recipe_name = ""
 if 'accounting_records' not in st.session_state:
     st.session_state.accounting_records = []
+if 'watermark_position' not in st.session_state:
+    st.session_state.watermark_position = "bottom-right"
+if 'materials_expander_expanded' not in st.session_state:
+    st.session_state.materials_expander_expanded = False
+if 'custom_categories' not in st.session_state:
+    st.session_state.custom_categories = load_custom_categories()
+if 'show_clear_confirm' not in st.session_state:
+    st.session_state.show_clear_confirm = False
 
 # 載入已儲存的材料資料
 def load_saved_materials():
@@ -191,6 +210,14 @@ def save_accounting_data():
     except Exception as e:
         st.error(f"儲存記帳資料時發生錯誤：{e}")
 
+# 儲存自訂類別
+def save_custom_categories():
+    try:
+        with open('custom_categories.json', 'w', encoding='utf-8') as f:
+            json.dump(st.session_state.custom_categories, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        st.error(f"儲存自訂類別時發生錯誤：{e}")
+
 
 # 載入已儲存的材料
 if not st.session_state.saved_materials:
@@ -215,47 +242,33 @@ st.markdown("""
 # 主要容器
 st.markdown('<div class="main-container">', unsafe_allow_html=True)
 
-# 側邊欄 - 頁面選擇
+# 側邊欄 - 功能選單
 with st.sidebar:
     st.markdown('<div class="sidebar-container">', unsafe_allow_html=True)
     st.markdown("### 功能選單")
     
-    # 頁面選擇器
-    page_options = ["成本計算", "材料管理", "食譜區", "記帳區"]
-    page_index = 0 if st.session_state.current_page == "成本計算" else (1 if st.session_state.current_page == "材料管理" else (2 if st.session_state.current_page == "食譜區" else 3))
-    
-    page = st.selectbox(
-        "選擇功能",
-        page_options,
-        index=page_index,
-        label_visibility="collapsed",
-        key="page_selector"
-    )
-
-    # 更新當前頁面
-    if page != st.session_state.current_page:
-        st.session_state.current_page = page
+    # 直接顯示功能按鈕
+    if st.button("💰 成本計算", use_container_width=True, type="primary" if st.session_state.current_page == "成本計算" else "secondary"):
+        st.session_state.current_page = "成本計算"
         st.rerun()
-
-    # 顯示統計資訊
-    if st.session_state.saved_materials:
-        st.markdown("---")
-        st.markdown("### 材料統計")
-        st.metric("已儲存材料", len(st.session_state.saved_materials))
-
-        # 顯示最近新增的材料
-        if st.session_state.saved_materials:
-            recent_materials = list(st.session_state.saved_materials.keys())[-3:]
-            st.markdown("**最近新增：**")
-            for material in recent_materials:
-                st.markdown(f"• {material}")
     
-
+    if st.button("📦 材料管理", use_container_width=True, type="primary" if st.session_state.current_page == "材料管理" else "secondary"):
+        st.session_state.current_page = "材料管理"
+        st.rerun()
     
-    # 新增資料匯出功能
+    if st.button("📖 食譜區", use_container_width=True, type="primary" if st.session_state.current_page == "食譜區" else "secondary"):
+        st.session_state.current_page = "食譜區"
+        st.rerun()
+    
+    if st.button("📊 記帳區", use_container_width=True, type="primary" if st.session_state.current_page == "記帳區" else "secondary"):
+        st.session_state.current_page = "記帳區"
+        st.rerun()
+    
     st.markdown("---")
+    
+    # 資料匯出功能
     st.markdown("### 📤 資料匯出")
-    if st.button("📥 下載所有資料", key="download_btn"):
+    if st.button("📥 下載所有資料", key="download_btn", use_container_width=True):
         # 準備下載資料
         download_data = {
             "materials": st.session_state.saved_materials,
@@ -339,10 +352,15 @@ if st.session_state.current_page == "成本計算":
                 if price_display is not None and price_display == int(price_display):
                     price_display = int(price_display)
 
+                # 使用安全的key，避免特殊符號問題
+                safe_key = f"checkbox_{hash(material) % 1000000}"
+                # 安全地顯示材料名稱，避免HTML渲染問題
+                import html
+                safe_material_name = html.escape(material)
                 if st.checkbox(
-                    f"{material} (NT$ {price_display}/g)",
+                    f"{safe_material_name} (NT$ {price_display}/g)",
                     value=is_selected,
-                    key=f"checkbox_{material}"
+                    key=safe_key
                 ):
                     selected_materials.append(material)
 
@@ -364,21 +382,28 @@ if st.session_state.current_page == "成本計算":
                         st.rerun()
 
             with col_clear_all:
-                if st.button("清除選擇", use_container_width=True, key="clear_all_btn"):
-                    if not st.session_state.selected_materials:
-                        st.info("✅ 已經沒有選擇任何材料")
-                    else:
-                        st.warning("⚠️ 確定要清除所有選擇嗎？")
-                        col_confirm, col_cancel = st.columns(2)
-                        with col_confirm:
-                            if st.button("確認清除", key="confirm_clear_all", use_container_width=True):
-                                st.session_state.selected_materials = []
-                                st.success("✅ 已清除所有選擇")
-                                st.rerun()
-                        with col_cancel:
-                            if st.button("取消", key="cancel_clear_all", use_container_width=True):
-                                st.info("❌ 已取消清除操作")
-                                st.rerun()
+                # 檢查是否在確認清除狀態
+                if st.session_state.get('show_clear_confirm', False):
+                    st.warning("⚠️ 確定要清除所有選擇嗎？")
+                    col_confirm, col_cancel = st.columns(2)
+                    with col_confirm:
+                        if st.button("確認清除", key="confirm_clear_all", use_container_width=True):
+                            st.session_state.selected_materials = []
+                            st.session_state.show_clear_confirm = False
+                            st.success("✅ 已清除所有選擇")
+                            st.rerun()
+                    with col_cancel:
+                        if st.button("取消", key="cancel_clear_all", use_container_width=True):
+                            st.session_state.show_clear_confirm = False
+                            st.info("❌ 已取消清除操作")
+                            st.rerun()
+                else:
+                    if st.button("清除選擇", use_container_width=True, key="clear_all_btn"):
+                        if not st.session_state.selected_materials:
+                            st.info("✅ 已經沒有選擇任何材料")
+                        else:
+                            st.session_state.show_clear_confirm = True
+                            st.rerun()
 
         if selected_materials:
             st.markdown("---")
@@ -404,20 +429,27 @@ if st.session_state.current_page == "成本計算":
                     if price_display is not None and price_display == int(price_display):
                         price_display = int(price_display)
                     
+                    # 安全地顯示材料名稱
+                    import html
+                    safe_material_name = html.escape(material)
                     st.markdown(f"""
                     <div class="metric-card">
-                        <h4>{material}</h4>
+                        <h4>{safe_material_name}</h4>
                         <p><strong>單價：</strong>NT$ {price_display} / 1g</p>
                     </div>
                     """, unsafe_allow_html=True)
 
                     # 輸入克數
                     current_weight = st.session_state.material_weights.get(material, 0.0)
+                    # 使用安全的key，避免特殊符號問題
+                    safe_weight_key = f"weight_{hash(material) % 1000000}"
+                    safe_yield_key = f"yield_rate_{hash(material) % 1000000}"
+                    
                     weight = st.text_input(
-                        f"{material} 克數 (g)", 
+                        f"{safe_material_name} 克數 (g)", 
                         value=str(current_weight) if current_weight > 0 else "",
-                        key=f"weight_{material}",
-                        help=f"請輸入 {material} 的重量（克）",
+                        key=safe_weight_key,
+                        help=f"請輸入 {safe_material_name} 的重量（克）",
                         label_visibility="collapsed",
                         placeholder="克數"
                     )
@@ -426,12 +458,12 @@ if st.session_state.current_page == "成本計算":
                     current_yield_rate = st.session_state.material_yield_rates.get(
                         material, ""
                     )
-                    help_text = (f"請輸入 {material} 的熟成率（例如：0.8 表示 80%），"
+                    help_text = (f"請輸入 {safe_material_name} 的熟成率（例如：0.8 表示 80%），"
                                 f"留空則不計算熟成率")
                     yield_rate = st.text_input(
-                        f"{material} 熟成率", 
+                        f"{safe_material_name} 熟成率", 
                         value=current_yield_rate,
-                        key=f"yield_rate_{material}",
+                        key=safe_yield_key,
                         help=help_text,
                         label_visibility="collapsed",
                         placeholder="熟成率（可選）"
@@ -518,11 +550,14 @@ if st.session_state.current_page == "成本計算":
                     with st.container():
                         st.markdown('<div class="small-metric">', unsafe_allow_html=True)
                         for material, data in recipe_materials.items():
+                            # 安全地顯示材料名稱
+                            import html
+                            safe_material_name = html.escape(material)
                             # 如果有熟成率，顯示更多資訊
                             if data['yield_rate'] is not None and data['yield_rate'] > 0:
                                 col1_result, col2_result, col3_result, col4_result, col5_result = st.columns(5)
                                 with col1_result:
-                                    st.metric("材料", material)
+                                    st.metric("材料", safe_material_name)
                                 with col2_result:
                                     st.metric("重量", f"{data['weight']:.1f} g")
                                 with col3_result:
@@ -541,11 +576,11 @@ if st.session_state.current_page == "成本計算":
                                     st.metric("成本", f"NT$ {cost_display}")
                                 
                                 # 顯示調整後的重量
-                                st.markdown(f"**{material}** 調整後重量：{data['adjusted_weight']:.1f} g (原重量 ÷ 熟成率)")
+                                st.markdown(f"**{safe_material_name}** 調整後重量：{data['adjusted_weight']:.1f} g (原重量 ÷ 熟成率)")
                             else:
                                 col1_result, col2_result, col3_result, col4_result = st.columns(4)
                                 with col1_result:
-                                    st.metric("材料", material)
+                                    st.metric("材料", safe_material_name)
                                 with col2_result:
                                     st.metric("重量", f"{data['weight']:.1f} g")
                                 with col3_result:
@@ -705,11 +740,13 @@ elif st.session_state.current_page == "材料管理":
                 if submitted:
                     if not material_name:
                         st.error("請輸入材料名稱！")
-                    elif price_per_100g is None or price_per_100g <= 0:
-                        st.error("請輸入有效的單價（必須大於0）！")
+                    elif price_per_100g is None or price_per_100g < 0:
+                        st.error("請輸入有效的單價（必須大於等於0）！")
                     else:
                         st.session_state.saved_materials[material_name] = price_per_100g
                         save_materials_data()
+                        # 記住展開狀態
+                        st.session_state.materials_expander_expanded = True
                         st.markdown(f"""
                         <div class="success-message">
                             <strong>成功！</strong> 已儲存 {material_name}
@@ -743,11 +780,10 @@ elif st.session_state.current_page == "材料管理":
             sorted_materials = list(st.session_state.saved_materials.items())
         
         # 使用可展開容器顯示材料列表
-        with st.expander(f"📋 查看所有材料 ({material_count} 個)", expanded=False):
-            # 計算每行顯示的材料數量（並排顯示）
+        with st.expander(f"📋 查看所有材料 ({material_count} 個)", expanded=st.session_state.materials_expander_expanded):
+            # 並排顯示材料（每行2個）
             materials_per_row = 2
             
-            # 分批顯示材料
             for i in range(0, len(sorted_materials), materials_per_row):
                 row_materials = sorted_materials[i:i + materials_per_row]
                 cols = st.columns(materials_per_row)
@@ -757,156 +793,217 @@ elif st.session_state.current_page == "材料管理":
                         price_display = price
                         if price_display is not None and price_display == int(price_display):
                             price_display = int(price_display)
-
-                        st.markdown(f"""
-                        <div style="
-                            background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
-                            border-radius: 12px;
-                            padding: 16px;
-                            margin: 8px 0;
-                            box-shadow: 0 4px 15px rgba(0,0,0,0.08);
-                            border: 2px solid #f8d7da;
-                            transition: all 0.3s ease;
-                        ">
-                            <div style="
-                                display: flex;
-                                flex-direction: column;
-                                align-items: center;
-                                text-align: center;
-                                color: #8b4513;
-                            ">
-                                <div style="
-                                    font-size: 18px;
-                                    font-weight: bold;
-                                    margin-bottom: 8px;
-                                    text-shadow: 1px 1px 2px rgba(139,69,19,0.2);
-                                ">
-                                    📦 {material}
-                                </div>
-                                <div style="
-                                    font-size: 14px;
-                                    background: rgba(255,255,255,0.6);
-                                    padding: 4px 8px;
-                                    border-radius: 6px;
-                                    backdrop-filter: blur(5px);
-                                    color: #8b4513;
-                                    font-weight: 500;
-                                ">
-                                    NT$ {price_display} / 1g
-                                </div>
-                            </div>
-                        </div>
-                        """, unsafe_allow_html=True)
                         
-                        # 編輯、移動和刪除按鈕
-                        st.markdown("<div style='margin-top: 8px;'>", unsafe_allow_html=True)
-                        col_edit, col_move_up, col_move_down, col_delete = st.columns(4)
+                        # 材料信息和操作按鈕並排顯示
+                        col_info, col_actions = st.columns([3, 1])
                         
-                        with col_edit:
-                            if st.button("✏️ 編輯", key=f"edit_{material}", help=f"編輯 {material}", use_container_width=True, type="secondary"):
-                                st.session_state.editing_material = material
-                                st.session_state.editing_price = price
-                                st.rerun()
-                        
-                        with col_move_up:
-                            if st.button("⬆️ 上移", key=f"move_up_{material}", help=f"上移 {material}", use_container_width=True, type="secondary"):
-                                # 初始化自訂順序
-                                if not hasattr(st.session_state, 'custom_material_order'):
-                                    st.session_state.custom_material_order = list(st.session_state.saved_materials.keys())
+                        with col_info:
+                            # 檢查是否在編輯此材料
+                            if st.session_state.get('editing_material') == material:
+                                # 顯示內聯編輯表單
+                                col_name, col_price = st.columns([2, 1])
+                                with col_name:
+                                    # 使用安全的key，避免特殊符號問題
+                                    safe_edit_name_key = f"edit_name_{hash(material) % 1000000}"
+                                    safe_edit_price_key = f"edit_price_{hash(material) % 1000000}"
+                                    safe_save_key = f"save_edit_{hash(material) % 1000000}"
+                                    safe_cancel_key = f"cancel_edit_{hash(material) % 1000000}"
+                                    
+                                    edited_name = st.text_input(
+                                        "材料名稱",
+                                        value=material,
+                                        key=safe_edit_name_key,
+                                        label_visibility="collapsed"
+                                    )
+                                with col_price:
+                                    edited_price = st.number_input(
+                                        "單價",
+                                        value=float(price),
+                                        min_value=0.0,
+                                        step=0.01,
+                                        key=safe_edit_price_key,
+                                        label_visibility="collapsed"
+                                    )
                                 
-                                # 移動材料
-                                current_index = st.session_state.custom_material_order.index(material)
-                                if current_index > 0:
-                                    # 交換順序
-                                    st.session_state.custom_material_order[current_index], st.session_state.custom_material_order[current_index-1] = \
-                                        st.session_state.custom_material_order[current_index-1], st.session_state.custom_material_order[current_index]
-                                    
-                                    # 重新排序 saved_materials 字典
-                                    new_materials = {}
-                                    for mat in st.session_state.custom_material_order:
-                                        if mat in st.session_state.saved_materials:
-                                            new_materials[mat] = st.session_state.saved_materials[mat]
-                                    
-                                    st.session_state.saved_materials = new_materials
-                                    save_materials_data()
-                                    st.success(f"✅ 已上移材料「{material}」")
-                                    st.rerun()
-                                else:
-                                    st.info("📌 已經是第一個材料")
-                        
-                        with col_move_down:
-                            if st.button("⬇️ 下移", key=f"move_down_{material}", help=f"下移 {material}", use_container_width=True, type="secondary"):
-                                # 初始化自訂順序
-                                if not hasattr(st.session_state, 'custom_material_order'):
-                                    st.session_state.custom_material_order = list(st.session_state.saved_materials.keys())
-                                
-                                # 移動材料
-                                current_index = st.session_state.custom_material_order.index(material)
-                                if current_index < len(st.session_state.custom_material_order) - 1:
-                                    # 交換順序
-                                    st.session_state.custom_material_order[current_index], st.session_state.custom_material_order[current_index+1] = \
-                                        st.session_state.custom_material_order[current_index+1], st.session_state.custom_material_order[current_index]
-                                    
-                                    # 重新排序 saved_materials 字典
-                                    new_materials = {}
-                                    for mat in st.session_state.custom_material_order:
-                                        if mat in st.session_state.saved_materials:
-                                            new_materials[mat] = st.session_state.saved_materials[mat]
-                                    
-                                    st.session_state.saved_materials = new_materials
-                                    save_materials_data()
-                                    st.success(f"✅ 已下移材料「{material}」")
-                                    st.rerun()
-                                else:
-                                    st.info("📌 已經是最後一個材料")
-                        
-                        with col_delete:
-                            # 檢查是否在確認刪除狀態
-                            if f"confirming_delete_{material}" not in st.session_state:
-                                st.session_state[f"confirming_delete_{material}"] = False
-                            
-                            if not st.session_state[f"confirming_delete_{material}"]:
-                                if st.button("🗑️ 刪除", key=f"del_{material}", help=f"刪除 {material}", use_container_width=True, type="secondary"):
-                                    st.session_state[f"confirming_delete_{material}"] = True
-                                    st.rerun()
+                                # 確認和取消按鈕
+                                col_save, col_cancel = st.columns(2)
+                                with col_save:
+                                    if st.button("✅", key=safe_save_key, help="保存修改", use_container_width=True):
+                                        if edited_name and edited_price > 0:
+                                            # 檢查名稱是否已存在（除了自己）
+                                            if edited_name != material and edited_name in st.session_state.saved_materials:
+                                                st.error("材料名稱已存在！")
+                                            else:
+                                                # 更新材料
+                                                del st.session_state.saved_materials[material]
+                                                st.session_state.saved_materials[edited_name] = edited_price
+                                                # 更新自訂順序
+                                                if hasattr(st.session_state, 'custom_material_order'):
+                                                    if material in st.session_state.custom_material_order:
+                                                        idx = st.session_state.custom_material_order.index(material)
+                                                        st.session_state.custom_material_order[idx] = edited_name
+                                                save_materials_data()
+                                                st.session_state.editing_material = None
+                                                st.session_state.materials_expander_expanded = True
+                                                st.success(f"✅ 已更新材料「{edited_name}」")
+                                                st.rerun()
+                                        else:
+                                            st.error("請輸入有效的材料名稱和單價！")
+                                with col_cancel:
+                                    if st.button("❌", key=safe_cancel_key, help="取消編輯", use_container_width=True):
+                                        st.session_state.editing_material = None
+                                        st.rerun()
                             else:
-                                st.warning(f"⚠️ 確定要刪除材料「{material}」嗎？")
-                                col_confirm, col_cancel = st.columns(2)
-                                with col_confirm:
-                                    if st.button("確認刪除", key=f"confirm_del_{material}", help=f"確認刪除 {material}", use_container_width=True):
-                                        # 直接刪除材料
+                                # 顯示正常的材料信息
+                                import html
+                                safe_material_name = html.escape(material)
+                                st.markdown(f"<div style='padding-top: 8px;'><strong>{safe_material_name}</strong> (NT$ {price_display}/g)</div>", unsafe_allow_html=True)
+                        
+                        with col_actions:
+                            # 操作按鈕
+                            col_edit, col_move_up, col_move_down, col_delete = st.columns(4)
+                            
+                            with col_edit:
+                                # 使用安全的key，避免特殊符號問題
+                                safe_edit_btn_key = f"edit_{hash(material) % 1000000}"
+                                if st.button("✏️", key=safe_edit_btn_key, help=f"編輯 {material}", use_container_width=True):
+                                    # 記住展開狀態
+                                    st.session_state.materials_expander_expanded = True
+                                    st.session_state.editing_material = material
+                                    st.rerun()
+                            
+                            with col_move_up:
+                                # 使用安全的key，避免特殊符號問題
+                                safe_move_up_key = f"move_up_{hash(material) % 1000000}"
+                                if st.button("⬆️", key=safe_move_up_key, help=f"上移 {material}", use_container_width=True):
+                                    # 初始化自訂順序並同步
+                                    if not hasattr(st.session_state, 'custom_material_order'):
+                                        st.session_state.custom_material_order = list(st.session_state.saved_materials.keys())
+                                    else:
+                                        # 同步 custom_material_order 和 saved_materials
+                                        st.session_state.custom_material_order = [mat for mat in st.session_state.custom_material_order if mat in st.session_state.saved_materials]
+                                        # 添加任何缺失的材料
+                                        for mat in st.session_state.saved_materials.keys():
+                                            if mat not in st.session_state.custom_material_order:
+                                                st.session_state.custom_material_order.append(mat)
+                                    
+                                    # 移動材料
+                                    if material in st.session_state.custom_material_order:
+                                        current_index = st.session_state.custom_material_order.index(material)
+                                        if current_index > 0:
+                                            # 交換順序
+                                            st.session_state.custom_material_order[current_index], st.session_state.custom_material_order[current_index-1] = \
+                                                st.session_state.custom_material_order[current_index-1], st.session_state.custom_material_order[current_index]
+                                            
+                                            # 重新排序 saved_materials 字典
+                                            new_materials = {}
+                                            for mat in st.session_state.custom_material_order:
+                                                if mat in st.session_state.saved_materials:
+                                                    new_materials[mat] = st.session_state.saved_materials[mat]
+                                            
+                                            st.session_state.saved_materials = new_materials
+                                            save_materials_data()
+                                            # 記住展開狀態
+                                            st.session_state.materials_expander_expanded = True
+                                            st.success(f"✅ 已上移材料「{material}」")
+                                            st.rerun()
+                                        else:
+                                            st.info("📌 已經是第一個材料")
+                                    else:
+                                        st.error(f"❌ 材料「{material}」不在列表中")
+                                        st.rerun()
+                            
+                            with col_move_down:
+                                # 使用安全的key，避免特殊符號問題
+                                safe_move_down_key = f"move_down_{hash(material) % 1000000}"
+                                if st.button("⬇️", key=safe_move_down_key, help=f"下移 {material}", use_container_width=True):
+                                    # 初始化自訂順序並同步
+                                    if not hasattr(st.session_state, 'custom_material_order'):
+                                        st.session_state.custom_material_order = list(st.session_state.saved_materials.keys())
+                                    else:
+                                        # 同步 custom_material_order 和 saved_materials
+                                        st.session_state.custom_material_order = [mat for mat in st.session_state.custom_material_order if mat in st.session_state.saved_materials]
+                                        # 添加任何缺失的材料
+                                        for mat in st.session_state.saved_materials.keys():
+                                            if mat not in st.session_state.custom_material_order:
+                                                st.session_state.custom_material_order.append(mat)
+                                    
+                                    # 移動材料
+                                    if material in st.session_state.custom_material_order:
+                                        current_index = st.session_state.custom_material_order.index(material)
+                                        if current_index < len(st.session_state.custom_material_order) - 1:
+                                            # 交換順序
+                                            st.session_state.custom_material_order[current_index], st.session_state.custom_material_order[current_index+1] = \
+                                                st.session_state.custom_material_order[current_index+1], st.session_state.custom_material_order[current_index]
+                                            
+                                            # 重新排序 saved_materials 字典
+                                            new_materials = {}
+                                            for mat in st.session_state.custom_material_order:
+                                                if mat in st.session_state.saved_materials:
+                                                    new_materials[mat] = st.session_state.saved_materials[mat]
+                                            
+                                            st.session_state.saved_materials = new_materials
+                                            save_materials_data()
+                                            # 記住展開狀態
+                                            st.session_state.materials_expander_expanded = True
+                                            st.success(f"✅ 已下移材料「{material}」")
+                                            st.rerun()
+                                        else:
+                                            st.info("📌 已經是最後一個材料")
+                                    else:
+                                        st.error(f"❌ 材料「{material}」不在列表中")
+                                        st.rerun()
+                            
+                            with col_delete:
+                                # 檢查是否在確認刪除狀態
+                                if st.session_state.get(f"show_delete_modal_{material}", False):
+                                    # 顯示確認按鈕（垂直排列）
+                                    # 使用安全的key，避免特殊符號問題
+                                    safe_confirm_del_key = f"confirm_del_{hash(material) % 1000000}"
+                                    safe_cancel_del_key = f"cancel_del_{hash(material) % 1000000}"
+                                    if st.button("✅", key=safe_confirm_del_key, help="確認刪除", use_container_width=True):
+                                        # 記住展開狀態
+                                        st.session_state.materials_expander_expanded = True
+                                        # 刪除材料
                                         del st.session_state.saved_materials[material]
                                         # 同時從自訂順序中移除
                                         if hasattr(st.session_state, 'custom_material_order') and material in st.session_state.custom_material_order:
                                             st.session_state.custom_material_order.remove(material)
                                         save_materials_data()
-                                        st.session_state[f"confirming_delete_{material}"] = False
+                                        # 重置刪除確認狀態
+                                        st.session_state[f"show_delete_modal_{material}"] = False
                                         st.success(f"✅ 已刪除材料「{material}」")
                                         st.rerun()
-                                with col_cancel:
-                                    if st.button("取消", key=f"cancel_del_{material}", help=f"取消刪除 {material}", use_container_width=True):
-                                        st.session_state[f"confirming_delete_{material}"] = False
-                                        st.info(f"❌ 已取消刪除材料「{material}」")
+                                    if st.button("❌", key=safe_cancel_del_key, help="取消刪除", use_container_width=True):
+                                        # 重置刪除確認狀態
+                                        st.session_state[f"show_delete_modal_{material}"] = False
+                                        st.rerun()
+                                else:
+                                    # 顯示刪除按鈕
+                                    # 使用安全的key，避免特殊符號問題
+                                    safe_del_key = f"del_{hash(material) % 1000000}"
+                                    if st.button("🗑️", key=safe_del_key, help=f"刪除 {material}", use_container_width=True):
+                                        # 設置刪除確認狀態
+                                        st.session_state[f"show_delete_modal_{material}"] = True
                                         st.rerun()
                         
-                        st.markdown("</div>", unsafe_allow_html=True)
-                        st.markdown("<div style='margin: 16px 0; border-bottom: 1px solid #e0e0e0;'></div>", unsafe_allow_html=True)
+                        st.markdown("<div style='margin: 4px 0; border-bottom: 1px solid #e0e0e0;'></div>", unsafe_allow_html=True)
     else:
         st.markdown("""
         <div class="warning-message">
             <p>尚未新增任何材料</p>
         </div>
         """, unsafe_allow_html=True)
-    
+
     # 批量操作
     if st.session_state.saved_materials:
         st.markdown("---")
         st.markdown("#### 批量操作")
-        
+
         # 檢查是否在確認清除狀態
         if "confirming_clear_all" not in st.session_state:
             st.session_state["confirming_clear_all"] = False
-        
+
         if not st.session_state["confirming_clear_all"]:
             if st.button("清除所有材料", type="secondary", use_container_width=True, key="clear_all_materials"):
                 st.session_state["confirming_clear_all"] = True
@@ -1105,6 +1202,47 @@ elif st.session_state.current_page == "記帳區":
     with col1:
         st.markdown("#### 新增記帳")
         
+        # 類別管理（在form外面）
+        st.markdown("#### 類別管理")
+        col_category_manage, col_add_category = st.columns([3, 1])
+        with col_category_manage:
+            current_category = st.selectbox(
+                "選擇類別",
+                st.session_state.custom_categories,
+                key="category_selector"
+            )
+        with col_add_category:
+            if st.button("➕ 新增類別", help="新增類別", use_container_width=True):
+                st.session_state.show_add_category = True
+        
+        # 新增類別輸入框
+        if st.session_state.get('show_add_category', False):
+            new_category = st.text_input(
+                "新增類別名稱",
+                placeholder="輸入新類別名稱",
+                key="new_category_input"
+            )
+            col_save_cat, col_cancel_cat = st.columns(2)
+            with col_save_cat:
+                if st.button("保存", key="save_category", use_container_width=True):
+                    if new_category and new_category not in st.session_state.custom_categories:
+                        st.session_state.custom_categories.append(new_category)
+                        save_custom_categories()
+                        st.session_state.show_add_category = False
+                        st.success(f"✅ 已新增類別「{new_category}」")
+                        st.rerun()
+                    elif new_category in st.session_state.custom_categories:
+                        st.error("❌ 類別已存在！")
+                    else:
+                        st.error("❌ 請輸入類別名稱！")
+            with col_cancel_cat:
+                if st.button("取消", key="cancel_category", use_container_width=True):
+                    st.session_state.show_add_category = False
+                    st.rerun()
+        
+        st.markdown("---")
+        st.markdown("#### 新增記帳")
+        
         # 新增記帳表單
         with st.form("add_accounting_form"):
             # 日期選擇
@@ -1122,10 +1260,9 @@ elif st.session_state.current_page == "記帳區":
             )
             
             # 類別選擇
-            category_options = ["食材", "設備", "包裝", "運輸", "食譜", "其他"]
             category = st.selectbox(
                 "類別",
-                category_options,
+                st.session_state.custom_categories,
                 label_visibility="visible"
             )
             
@@ -1159,10 +1296,11 @@ elif st.session_state.current_page == "記帳區":
                 label_visibility="visible"
             )
             
-            # 食譜區欄位
-            recipe_area = st.text_input(
-                "食譜區",
-                placeholder="例如：巧克力蛋糕、麵包、餅乾...",
+            # 產品選擇（來自食譜區）
+            product_options = ["無"] + list(st.session_state.saved_recipes.keys())
+            product = st.selectbox(
+                "產品",
+                product_options,
                 label_visibility="visible"
             )
             
@@ -1177,6 +1315,8 @@ elif st.session_state.current_page == "記帳區":
             submitted = st.form_submit_button("新增記帳", type="primary", use_container_width=True)
             if submitted:
                 if description and amount > 0 and category:
+                    # 使用當前選擇的類別
+                    selected_category = st.session_state.get("category_selector", category)
                     # 生成唯一ID
                     record_id = str(uuid.uuid4())
                     
@@ -1185,12 +1325,12 @@ elif st.session_state.current_page == "記帳區":
                         "id": record_id,
                         "date": record_date.isoformat(),
                         "type": transaction_type,
-                        "category": category,
+                        "category": selected_category,
                         "description": description,
                         "amount": amount,
                         "location": location,
                         "buyer": buyer,
-                        "recipe_area": recipe_area,
+                        "product": product if product != "無" else "",
                         "remark": remark,
                         "created_at": get_taiwan_time().isoformat()
                     }
@@ -1245,18 +1385,18 @@ elif st.session_state.current_page == "記帳區":
                 label_visibility="collapsed"
             )
             
-            # 食譜區篩選
-            # 獲取所有食譜區的值
-            all_recipe_areas = set()
+            # 產品篩選
+            # 獲取所有產品的值
+            all_products = set()
             for record in st.session_state.accounting_records:
-                recipe_area = record.get('recipe_area', '')
-                if recipe_area:  # 只包含有食譜區的記錄
-                    all_recipe_areas.add(recipe_area)
+                product = record.get('product', '')
+                if product:  # 只包含有產品的記錄
+                    all_products.add(product)
             
-            # 食譜區選擇（始終顯示）
-            recipe_area_filter = st.selectbox(
-                "食譜區篩選",
-                ["全部食譜區"] + sorted(list(all_recipe_areas)),
+            # 產品選擇（始終顯示）
+            product_filter = st.selectbox(
+                "產品篩選",
+                ["全部產品"] + sorted(list(all_products)),
                 label_visibility="collapsed"
             )
             
@@ -1267,9 +1407,9 @@ elif st.session_state.current_page == "記帳區":
             elif record_filter == "總支出紀錄":
                 filtered_records = [r for r in st.session_state.accounting_records if r["type"] == "支出"]
             
-            # 根據食譜區篩選
-            if recipe_area_filter != "全部食譜區":
-                filtered_records = [r for r in filtered_records if r.get('recipe_area', '') == recipe_area_filter]
+            # 根據產品篩選
+            if product_filter != "全部產品":
+                filtered_records = [r for r in filtered_records if r.get('product', '') == product_filter]
             
             # 日期篩選
             if filtered_records:
@@ -1379,7 +1519,7 @@ elif st.session_state.current_page == "記帳區":
                 with col7:
                     st.markdown("**購買人**")
                 with col8:
-                    st.markdown("**食譜區**")
+                    st.markdown("**產品**")
                 with col9:
                     st.markdown("**備註**")
                 with col10:
@@ -1415,7 +1555,7 @@ elif st.session_state.current_page == "記帳區":
                     with col7:
                         st.markdown(f"{record.get('buyer', '')}")
                     with col8:
-                        st.markdown(f"{record.get('recipe_area', '')}")
+                        st.markdown(f"{record.get('product', '')}")
                     with col9:
                         st.markdown(f"{record.get('remark', '')}")
                     with col10:
