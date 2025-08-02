@@ -1196,19 +1196,26 @@ elif st.session_state.current_page == "食譜區":
                         st.rerun()
 
                 with col_delete:
-                    if st.button("🗑️ 刪除", key=f"del_recipe_{recipe_name}", use_container_width=True):
+                    # 檢查是否在確認刪除狀態
+                    if st.session_state.get(f'show_delete_recipe_modal_{recipe_name}', False):
                         st.warning(f"⚠️ 確定要刪除食譜「{recipe_name}」嗎？此操作無法復原！")
                         col_confirm, col_cancel = st.columns(2)
                         with col_confirm:
                             if st.button("確認刪除", key=f"confirm_del_recipe_{recipe_name}", use_container_width=True):
                                 del st.session_state.saved_recipes[recipe_name]
                                 save_recipes_data()
+                                st.session_state[f'show_delete_recipe_modal_{recipe_name}'] = False
                                 st.success(f"✅ 已刪除食譜「{recipe_name}」")
                                 st.rerun()
                         with col_cancel:
                             if st.button("取消", key=f"cancel_del_recipe_{recipe_name}", use_container_width=True):
+                                st.session_state[f'show_delete_recipe_modal_{recipe_name}'] = False
                                 st.info(f"❌ 已取消刪除食譜「{recipe_name}」")
                                 st.rerun()
+                    else:
+                        if st.button("🗑️ 刪除", key=f"del_recipe_{recipe_name}", use_container_width=True):
+                            st.session_state[f'show_delete_recipe_modal_{recipe_name}'] = True
+                            st.rerun()
     else:
         st.markdown("""
         <div class="warning-message">
