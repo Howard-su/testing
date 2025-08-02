@@ -120,6 +120,10 @@ if 'editing_material' not in st.session_state:
     st.session_state.editing_material = None
 if 'editing_price' not in st.session_state:
     st.session_state.editing_price = None
+if 'material_input_key' not in st.session_state:
+    st.session_state.material_input_key = 0
+if 'price_input_key' not in st.session_state:
+    st.session_state.price_input_key = 0
 
 # 載入已儲存的材料資料
 def load_saved_materials():
@@ -736,6 +740,7 @@ elif st.session_state.current_page == "材料管理":
             with st.form("add_material_form"):
                 material_name = st.text_input(
                     "材料名稱",
+                    key=f"material_input_{st.session_state.material_input_key}",
                     label_visibility="visible",
                     help="請只輸入材料名稱，不要包含重量或價格信息"
                 )
@@ -743,6 +748,7 @@ elif st.session_state.current_page == "材料管理":
                     "單價 (每g，NT$)", 
                     min_value=0.0, 
                     value=None, 
+                    key=f"price_input_{st.session_state.price_input_key}",
                     step=0.01,
                     help="輸入每克的價格",
                     label_visibility="visible"
@@ -759,6 +765,9 @@ elif st.session_state.current_page == "材料管理":
                         save_materials_data()
                         # 記住展開狀態
                         st.session_state.materials_expander_expanded = True
+                        # 增加key值來清空輸入框
+                        st.session_state.material_input_key += 1
+                        st.session_state.price_input_key += 1
                         st.markdown(f"""
                         <div class="success-message">
                             <strong>成功！</strong> 已儲存 {material_name}
