@@ -688,18 +688,18 @@ if st.session_state.current_page == "成本計算":
 elif st.session_state.current_page == "材料管理":
     # 材料管理頁面
     st.markdown("### 材料管理")
-    
+
     # 新增材料區塊
     st.markdown("#### 新增材料")
-    
+
     col1, col2 = st.columns([1, 1])
-    
+
     with col1:
-        
+
         # 檢查是否在編輯模式
         if hasattr(st.session_state, 'editing_material') and st.session_state.editing_material:
             st.markdown(f"#### 編輯材料：{st.session_state.editing_material}")
-            
+
             # 編輯材料表單
             with st.form("edit_material_form"):
                 edited_name = st.text_input(
@@ -715,7 +715,7 @@ elif st.session_state.current_page == "材料管理":
                     help="輸入每克的價格",
                     label_visibility="visible"
                 )
-                
+
                 col_save, col_cancel = st.columns(2)
                 with col_save:
                     submitted = st.form_submit_button("儲存修改", type="primary", use_container_width=True)
@@ -724,7 +724,7 @@ elif st.session_state.current_page == "材料管理":
                         st.session_state.editing_material = None
                         st.session_state.editing_price = None
                         st.rerun()
-                
+
                 if submitted:
                     if not edited_name:
                         st.error("請輸入材料名稱！")
@@ -735,13 +735,56 @@ elif st.session_state.current_page == "材料管理":
                         if edited_name != st.session_state.editing_material and edited_name in st.session_state.saved_materials:
                             st.error("材料名稱已存在！")
                         else:
+                            old_material_name = st.session_state.editing_material
+                            old_price = st.session_state.saved_materials[old_material_name]
+                            
                             # 刪除舊材料，添加新材料
-                            del st.session_state.saved_materials[st.session_state.editing_material]
+                            del st.session_state.saved_materials[old_material_name]
                             st.session_state.saved_materials[edited_name] = edited_price
+                            
+                            # 更新食譜中的材料價格和成本
+                            updated_recipes = []
+                            for recipe_name, recipe_data in st.session_state.saved_recipes.items():
+                                if old_material_name in recipe_data['materials']:
+                                    # 更新材料名稱（如果名稱改變）
+                                    if edited_name != old_material_name:
+                                        recipe_data['materials'][edited_name] = recipe_data['materials'].pop(old_material_name)
+                                    
+                                    # 更新材料價格
+                                    recipe_data['materials'][edited_name]['price'] = edited_price
+                                    
+                                    # 重新計算材料成本
+                                    weight = recipe_data['materials'][edited_name]['weight']
+                                    yield_rate = recipe_data['materials'][edited_name].get('yield_rate')
+                                    
+                                    if yield_rate is not None and yield_rate > 0:
+                                        # 使用熟成率計算
+                                        adjusted_weight = weight / yield_rate
+                                        material_cost = adjusted_weight * edited_price
+                                    else:
+                                        # 原本的計算
+                                        material_cost = weight * edited_price
+                                    
+                                    recipe_data['materials'][edited_name]['cost'] = material_cost
+                                    recipe_data['materials'][edited_name]['adjusted_weight'] = adjusted_weight if yield_rate is not None and yield_rate > 0 else weight
+                                    
+                                    # 重新計算食譜總成本
+                                    total_cost = sum(mat_data['cost'] for mat_data in recipe_data['materials'].values())
+                                    recipe_data['total_cost'] = total_cost
+                                    
+                                    updated_recipes.append(recipe_name)
+                            
                             save_materials_data()
+                            if updated_recipes:
+                                save_recipes_data()
+                            
                             st.session_state.editing_material = None
                             st.session_state.editing_price = None
-                            st.success(f"✅ 已更新材料「{edited_name}」")
+                            
+                            if updated_recipes:
+                                st.success(f"✅ 已更新材料「{edited_name}」並同步更新了 {len(updated_recipes)} 個食譜的成本")
+                            else:
+                                st.success(f"✅ 已更新材料「{edited_name}」")
                             st.rerun()
         
         # 新增材料表單
@@ -867,18 +910,60 @@ elif st.session_state.current_page == "材料管理":
                                             if edited_name != material and edited_name in st.session_state.saved_materials:
                                                 st.error("材料名稱已存在！")
                                             else:
+                                                old_price = st.session_state.saved_materials[material]
                                                 # 更新材料
                                                 del st.session_state.saved_materials[material]
                                                 st.session_state.saved_materials[edited_name] = edited_price
+                                                
                                                 # 更新自訂順序
                                                 if hasattr(st.session_state, 'custom_material_order'):
                                                     if material in st.session_state.custom_material_order:
                                                         idx = st.session_state.custom_material_order.index(material)
                                                         st.session_state.custom_material_order[idx] = edited_name
+                                                
+                                                # 更新食譜中的材料價格和成本
+                                                updated_recipes = []
+                                                for recipe_name, recipe_data in st.session_state.saved_recipes.items():
+                                                    if material in recipe_data['materials']:
+                                                        # 更新材料名稱（如果名稱改變）
+                                                        if edited_name != material:
+                                                            recipe_data['materials'][edited_name] = recipe_data['materials'].pop(material)
+                                                        
+                                                        # 更新材料價格
+                                                        recipe_data['materials'][edited_name]['price'] = edited_price
+                                                        
+                                                        # 重新計算材料成本
+                                                        weight = recipe_data['materials'][edited_name]['weight']
+                                                        yield_rate = recipe_data['materials'][edited_name].get('yield_rate')
+                                                        
+                                                        if yield_rate is not None and yield_rate > 0:
+                                                            # 使用熟成率計算
+                                                            adjusted_weight = weight / yield_rate
+                                                            material_cost = adjusted_weight * edited_price
+                                                        else:
+                                                            # 原本的計算
+                                                            material_cost = weight * edited_price
+                                                        
+                                                        recipe_data['materials'][edited_name]['cost'] = material_cost
+                                                        recipe_data['materials'][edited_name]['adjusted_weight'] = adjusted_weight if yield_rate is not None and yield_rate > 0 else weight
+                                                        
+                                                        # 重新計算食譜總成本
+                                                        total_cost = sum(mat_data['cost'] for mat_data in recipe_data['materials'].values())
+                                                        recipe_data['total_cost'] = total_cost
+                                                        
+                                                        updated_recipes.append(recipe_name)
+                                                
                                                 save_materials_data()
+                                                if updated_recipes:
+                                                    save_recipes_data()
+                                                
                                                 st.session_state.editing_material = None
                                                 st.session_state.materials_expander_expanded = True
-                                                st.success(f"✅ 已更新材料「{edited_name}」")
+                                                
+                                                if updated_recipes:
+                                                    st.success(f"✅ 已更新材料「{edited_name}」並同步更新了 {len(updated_recipes)} 個食譜的成本")
+                                                else:
+                                                    st.success(f"✅ 已更新材料「{edited_name}」")
                                                 st.rerun()
                                         else:
                                             st.error("請輸入有效的材料名稱和單價！")
@@ -1018,15 +1103,46 @@ elif st.session_state.current_page == "材料管理":
                                     if st.button("✅", key=safe_confirm_del_key, help="確認刪除", use_container_width=True):
                                         # 記住展開狀態
                                         st.session_state.materials_expander_expanded = True
+                                        
+                                        # 檢查哪些食譜使用了這個材料
+                                        affected_recipes = []
+                                        for recipe_name, recipe_data in st.session_state.saved_recipes.items():
+                                            if material in recipe_data['materials']:
+                                                affected_recipes.append(recipe_name)
+                                        
                                         # 刪除材料
                                         del st.session_state.saved_materials[material]
+                                        
                                         # 同時從自訂順序中移除
                                         if hasattr(st.session_state, 'custom_material_order') and material in st.session_state.custom_material_order:
                                             st.session_state.custom_material_order.remove(material)
+                                        
+                                        # 從食譜中移除該材料並重新計算成本
+                                        for recipe_name in affected_recipes:
+                                            recipe_data = st.session_state.saved_recipes[recipe_name]
+                                            # 移除材料
+                                            del recipe_data['materials'][material]
+                                            
+                                            # 重新計算食譜總成本
+                                            if recipe_data['materials']:  # 如果還有其他材料
+                                                total_cost = sum(mat_data['cost'] for mat_data in recipe_data['materials'].values())
+                                                recipe_data['total_cost'] = total_cost
+                                            else:
+                                                # 如果沒有材料了，刪除整個食譜
+                                                del st.session_state.saved_recipes[recipe_name]
+                                                affected_recipes.remove(recipe_name)
+                                        
                                         save_materials_data()
+                                        if affected_recipes:
+                                            save_recipes_data()
+                                        
                                         # 重置刪除確認狀態
                                         st.session_state[f"show_delete_modal_{material}"] = False
-                                        st.success(f"✅ 已刪除材料「{material}」")
+                                        
+                                        if affected_recipes:
+                                            st.success(f"✅ 已刪除材料「{material}」並更新了 {len(affected_recipes)} 個食譜")
+                                        else:
+                                            st.success(f"✅ 已刪除材料「{material}」")
                                         st.rerun()
                                     if st.button("❌", key=safe_cancel_del_key, help="取消刪除", use_container_width=True):
                                         # 重置刪除確認狀態
