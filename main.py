@@ -124,6 +124,8 @@ if 'material_input_key' not in st.session_state:
     st.session_state.material_input_key = 0
 if 'price_input_key' not in st.session_state:
     st.session_state.price_input_key = 0
+if 'starred_materials' not in st.session_state:
+    st.session_state.starred_materials = set()
 
 # 載入已儲存的材料資料
 def load_saved_materials():
@@ -445,9 +447,13 @@ if st.session_state.current_page == "成本計算":
                     # 使用更安全的字符串處理，特別處理 $ 符號
                     safe_material_name = material.replace('$', '＄')  # 使用全形美元符號
                     safe_material_name = html.escape(safe_material_name)
+                    
+                    # 檢查是否為標記的材料，如果是則加上星號
+                    is_starred = material in st.session_state.starred_materials
+                    star_prefix = "⭐ " if is_starred else ""
                     st.markdown(f"""
                     <div class="metric-card">
-                        <h4>{safe_material_name}</h4>
+                        <h4>{star_prefix}{safe_material_name}</h4>
                         <p><strong>單價：</strong>NT$ {price_display} / 1g</p>
                     </div>
                     """, unsafe_allow_html=True)
@@ -568,11 +574,16 @@ if st.session_state.current_page == "成本計算":
                             # 使用更安全的字符串處理，特別處理 $ 符號
                             safe_material_name = material.replace('$', '＄')  # 使用全形美元符號
                             safe_material_name = html.escape(safe_material_name)
+                            
+                            # 檢查是否為標記的材料，如果是則加上星號
+                            is_starred = material in st.session_state.starred_materials
+                            star_prefix = "⭐ " if is_starred else ""
+                            
                             # 如果有熟成率，顯示更多資訊
                             if data['yield_rate'] is not None and data['yield_rate'] > 0:
                                 col1_result, col2_result, col3_result, col4_result, col5_result = st.columns(5)
                                 with col1_result:
-                                    st.metric("材料", safe_material_name)
+                                    st.metric("材料", f"{star_prefix}{safe_material_name}")
                                 with col2_result:
                                     st.metric("重量", f"{data['weight']:.1f} g")
                                 with col3_result:
@@ -591,11 +602,11 @@ if st.session_state.current_page == "成本計算":
                                     st.metric("成本", f"NT$ {cost_display}")
                                 
                                 # 顯示調整後的重量
-                                st.markdown(f"**{safe_material_name}** 調整後重量：{data['adjusted_weight']:.1f} g (原重量 ÷ 熟成率)")
+                                st.markdown(f"**{star_prefix}{safe_material_name}** 調整後重量：{data['adjusted_weight']:.1f} g (原重量 ÷ 熟成率)")
                             else:
                                 col1_result, col2_result, col3_result, col4_result = st.columns(4)
                                 with col1_result:
-                                    st.metric("材料", safe_material_name)
+                                    st.metric("材料", f"{star_prefix}{safe_material_name}")
                                 with col2_result:
                                     st.metric("重量", f"{data['weight']:.1f} g")
                                 with col3_result:
@@ -881,11 +892,30 @@ elif st.session_state.current_page == "材料管理":
                                 # 使用更安全的字符串處理，特別處理 $ 符號
                                 safe_material_name = material.replace('$', '＄')  # 使用全形美元符號
                                 safe_material_name = html.escape(safe_material_name)
-                                st.markdown(f"<div style='padding-top: 8px;'><strong>{safe_material_name}</strong> (NT$ {price_display}/g)</div>", unsafe_allow_html=True)
+                                
+                                # 檢查是否為標記的材料，如果是則加上星號
+                                is_starred = material in st.session_state.starred_materials
+                                star_prefix = "⭐ " if is_starred else ""
+                                st.markdown(f"<div style='padding-top: 8px;'><strong>{star_prefix}{safe_material_name}</strong> (NT$ {price_display}/g)</div>", unsafe_allow_html=True)
                         
                         with col_actions:
                             # 操作按鈕
-                            col_edit, col_move_up, col_move_down, col_delete = st.columns(4)
+                            col_star, col_edit, col_move_up, col_move_down, col_delete = st.columns(5)
+                            
+                            with col_star:
+                                # 星星按鈕 - 使用安全的key，避免特殊符號問題
+                                safe_star_key = f"star_{hash(material) % 1000000}"
+                                is_starred = material in st.session_state.starred_materials
+                                star_icon = "⭐" if is_starred else "☆"
+                                star_help = f"取消標記 {material}" if is_starred else f"標記 {material}"
+                                if st.button(star_icon, key=safe_star_key, help=star_help, use_container_width=True):
+                                    if is_starred:
+                                        st.session_state.starred_materials.remove(material)
+                                        st.success(f"✅ 已取消標記材料「{material}」")
+                                    else:
+                                        st.session_state.starred_materials.add(material)
+                                        st.success(f"✅ 已標記材料「{material}」")
+                                    st.rerun()
                             
                             with col_edit:
                                 # 使用安全的key，避免特殊符號問題
