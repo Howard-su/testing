@@ -116,6 +116,10 @@ if 'custom_categories' not in st.session_state:
     st.session_state.custom_categories = load_custom_categories()
 if 'show_clear_confirm' not in st.session_state:
     st.session_state.show_clear_confirm = False
+if 'editing_material' not in st.session_state:
+    st.session_state.editing_material = None
+if 'editing_price' not in st.session_state:
+    st.session_state.editing_price = None
 
 # 載入已儲存的材料資料
 def load_saved_materials():
@@ -354,9 +358,12 @@ if st.session_state.current_page == "成本計算":
 
                 # 使用安全的key，避免特殊符號問題
                 safe_key = f"checkbox_{hash(material) % 1000000}"
-                # 安全地顯示材料名稱，避免HTML渲染問題
+                # 安全地顯示材料名稱，避免特殊符號問題
                 import html
-                safe_material_name = html.escape(material)
+                import re
+                # 使用更安全的字符串處理，特別處理 $ 符號
+                safe_material_name = material.replace('$', '＄')  # 使用全形美元符號
+                safe_material_name = html.escape(safe_material_name)
                 if st.checkbox(
                     f"{safe_material_name} (NT$ {price_display}/g)",
                     value=is_selected,
@@ -431,7 +438,9 @@ if st.session_state.current_page == "成本計算":
                     
                     # 安全地顯示材料名稱
                     import html
-                    safe_material_name = html.escape(material)
+                    # 使用更安全的字符串處理，特別處理 $ 符號
+                    safe_material_name = material.replace('$', '＄')  # 使用全形美元符號
+                    safe_material_name = html.escape(safe_material_name)
                     st.markdown(f"""
                     <div class="metric-card">
                         <h4>{safe_material_name}</h4>
@@ -552,7 +561,9 @@ if st.session_state.current_page == "成本計算":
                         for material, data in recipe_materials.items():
                             # 安全地顯示材料名稱
                             import html
-                            safe_material_name = html.escape(material)
+                            # 使用更安全的字符串處理，特別處理 $ 符號
+                            safe_material_name = material.replace('$', '＄')  # 使用全形美元符號
+                            safe_material_name = html.escape(safe_material_name)
                             # 如果有熟成率，顯示更多資訊
                             if data['yield_rate'] is not None and data['yield_rate'] > 0:
                                 col1_result, col2_result, col3_result, col4_result, col5_result = st.columns(5)
@@ -684,7 +695,7 @@ elif st.session_state.current_page == "材料管理":
                 edited_price = st.number_input(
                     "單價 (每g，NT$)", 
                     min_value=0.0, 
-                    value=st.session_state.editing_price, 
+                    value=float(st.session_state.editing_price) if st.session_state.editing_price is not None else 0.0, 
                     step=0.01,
                     help="輸入每克的價格",
                     label_visibility="visible"
@@ -725,7 +736,8 @@ elif st.session_state.current_page == "材料管理":
             with st.form("add_material_form"):
                 material_name = st.text_input(
                     "材料名稱",
-                    label_visibility="visible"
+                    label_visibility="visible",
+                    help="請只輸入材料名稱，不要包含重量或價格信息"
                 )
                 price_per_100g = st.number_input(
                     "單價 (每g，NT$)", 
@@ -813,7 +825,8 @@ elif st.session_state.current_page == "材料管理":
                                         "材料名稱",
                                         value=material,
                                         key=safe_edit_name_key,
-                                        label_visibility="collapsed"
+                                        label_visibility="collapsed",
+                                        help="請只輸入材料名稱，不要包含重量或價格信息"
                                     )
                                 with col_price:
                                     edited_price = st.number_input(
@@ -856,7 +869,9 @@ elif st.session_state.current_page == "材料管理":
                             else:
                                 # 顯示正常的材料信息
                                 import html
-                                safe_material_name = html.escape(material)
+                                # 使用更安全的字符串處理，特別處理 $ 符號
+                                safe_material_name = material.replace('$', '＄')  # 使用全形美元符號
+                                safe_material_name = html.escape(safe_material_name)
                                 st.markdown(f"<div style='padding-top: 8px;'><strong>{safe_material_name}</strong> (NT$ {price_display}/g)</div>", unsafe_allow_html=True)
                         
                         with col_actions:
