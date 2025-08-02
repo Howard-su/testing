@@ -3,7 +3,6 @@ import pandas as pd
 import json
 import base64
 import uuid
-import html
 from datetime import datetime, timezone, timedelta
 import os
 
@@ -364,8 +363,10 @@ if st.session_state.current_page == "成本計算":
                     price_display = int(price_display)
 
                 # 使用安全的key，避免特殊符號問題
-                safe_key = f"checkbox_{abs(hash(material)) % 1000000}"
+                safe_key = f"checkbox_{hash(material) % 1000000}"
                 # 安全地顯示材料名稱，避免特殊符號問題
+                import html
+                import re
                 # 使用更安全的字符串處理，特別處理 $ 符號
                 safe_material_name = material.replace('$', '＄')  # 使用全形美元符號
                 safe_material_name = html.escape(safe_material_name)
@@ -442,6 +443,7 @@ if st.session_state.current_page == "成本計算":
                         price_display = int(price_display)
                     
                     # 安全地顯示材料名稱
+                    import html
                     # 使用更安全的字符串處理，特別處理 $ 符號
                     safe_material_name = material.replace('$', '＄')  # 使用全形美元符號
                     safe_material_name = html.escape(safe_material_name)
@@ -459,8 +461,8 @@ if st.session_state.current_page == "成本計算":
                     # 輸入克數
                     current_weight = st.session_state.material_weights.get(material, 0.0)
                     # 使用安全的key，避免特殊符號問題
-                    safe_weight_key = f"weight_{abs(hash(material)) % 1000000}"
-                    safe_yield_key = f"yield_rate_{abs(hash(material)) % 1000000}"
+                    safe_weight_key = f"weight_{hash(material) % 1000000}"
+                    safe_yield_key = f"yield_rate_{hash(material) % 1000000}"
                     
                     weight = st.text_input(
                         f"{safe_material_name} 克數 (g)", 
@@ -549,6 +551,18 @@ if st.session_state.current_page == "成本計算":
                     .small-metric {
                         font-size: 0.9em;
                     }
+                    .small-metric .stMetric {
+                        font-size: 0.9em;
+                    }
+                    .small-metric .stMetric [data-testid="metric-container"] {
+                        font-size: 0.9em;
+                    }
+                    .small-metric .stMetric [data-testid="metric-container"] label {
+                        font-size: 0.8em;
+                    }
+                    .small-metric .stMetric [data-testid="metric-container"] [data-testid="metric-value"] {
+                        font-size: 0.9em;
+                    }
                     </style>
                     """, unsafe_allow_html=True)
                     
@@ -556,6 +570,7 @@ if st.session_state.current_page == "成本計算":
                         st.markdown('<div class="small-metric">', unsafe_allow_html=True)
                         for material, data in recipe_materials.items():
                             # 安全地顯示材料名稱
+                            import html
                             # 使用更安全的字符串處理，特別處理 $ 符號
                             safe_material_name = material.replace('$', '＄')  # 使用全形美元符號
                             safe_material_name = html.escape(safe_material_name)
@@ -631,7 +646,7 @@ if st.session_state.current_page == "成本計算":
                 # 顯示保存成功訊息
                 if st.session_state.show_save_success:
                     st.markdown(f"""
-                    <div style="background-color: #d4edda; color: #155724; padding: 10px; margin: 10px 0;">
+                    <div style="background-color: #d4edda; color: #155724; padding: 10px; border-radius: 5px; border: 1px solid #c3e6cb; margin: 10px 0;">
                         <strong>✅ 保存成功！</strong> 食譜「{st.session_state.saved_recipe_name}」已保存到食譜區。
                     </div>
                     """, unsafe_allow_html=True)
@@ -864,10 +879,10 @@ elif st.session_state.current_page == "材料管理":
                                 col_name, col_price = st.columns([2, 1])
                                 with col_name:
                                     # 使用安全的key，避免特殊符號問題
-                                    safe_edit_name_key = f"edit_name_{abs(hash(material)) % 1000000}"
-                                    safe_edit_price_key = f"edit_price_{abs(hash(material)) % 1000000}"
-                                    safe_save_key = f"save_edit_{abs(hash(material)) % 1000000}"
-                                    safe_cancel_key = f"cancel_edit_{abs(hash(material)) % 1000000}"
+                                    safe_edit_name_key = f"edit_name_{hash(material) % 1000000}"
+                                    safe_edit_price_key = f"edit_price_{hash(material) % 1000000}"
+                                    safe_save_key = f"save_edit_{hash(material) % 1000000}"
+                                    safe_cancel_key = f"cancel_edit_{hash(material) % 1000000}"
                                     
                                     edited_name = st.text_input(
                                         "材料名稱",
@@ -958,6 +973,7 @@ elif st.session_state.current_page == "材料管理":
                                         st.rerun()
                             else:
                                 # 顯示正常的材料信息
+                                import html
                                 # 使用更安全的字符串處理，特別處理 $ 符號
                                 safe_material_name = material.replace('$', '＄')  # 使用全形美元符號
                                 safe_material_name = html.escape(safe_material_name)
@@ -973,7 +989,7 @@ elif st.session_state.current_page == "材料管理":
                             
                             with col_star:
                                 # 星星按鈕 - 使用安全的key，避免特殊符號問題
-                                safe_star_key = f"star_{abs(hash(material)) % 1000000}"
+                                safe_star_key = f"star_{hash(material) % 1000000}"
                                 is_starred = material in st.session_state.starred_materials
                                 star_icon = "⭐" if is_starred else "☆"
                                 star_help = f"取消標記 {material}" if is_starred else f"標記 {material}"
@@ -988,7 +1004,7 @@ elif st.session_state.current_page == "材料管理":
                             
                             with col_edit:
                                 # 使用安全的key，避免特殊符號問題
-                                safe_edit_btn_key = f"edit_{abs(hash(material)) % 1000000}"
+                                safe_edit_btn_key = f"edit_{hash(material) % 1000000}"
                                 if st.button("✏️", key=safe_edit_btn_key, help=f"編輯 {material}", use_container_width=True):
                                     # 記住展開狀態
                                     st.session_state.materials_expander_expanded = True
@@ -997,7 +1013,7 @@ elif st.session_state.current_page == "材料管理":
                             
                             with col_move_up:
                                 # 使用安全的key，避免特殊符號問題
-                                safe_move_up_key = f"move_up_{abs(hash(material)) % 1000000}"
+                                safe_move_up_key = f"move_up_{hash(material) % 1000000}"
                                 if st.button("⬆️", key=safe_move_up_key, help=f"上移 {material}", use_container_width=True):
                                     # 初始化自訂順序並同步
                                     if not hasattr(st.session_state, 'custom_material_order'):
@@ -1038,7 +1054,7 @@ elif st.session_state.current_page == "材料管理":
                             
                             with col_move_down:
                                 # 使用安全的key，避免特殊符號問題
-                                safe_move_down_key = f"move_down_{abs(hash(material)) % 1000000}"
+                                safe_move_down_key = f"move_down_{hash(material) % 1000000}"
                                 if st.button("⬇️", key=safe_move_down_key, help=f"下移 {material}", use_container_width=True):
                                     # 初始化自訂順序並同步
                                     if not hasattr(st.session_state, 'custom_material_order'):
@@ -1082,8 +1098,8 @@ elif st.session_state.current_page == "材料管理":
                                 if st.session_state.get(f"show_delete_modal_{material}", False):
                                     # 顯示確認按鈕（垂直排列）
                                     # 使用安全的key，避免特殊符號問題
-                                    safe_confirm_del_key = f"confirm_del_{abs(hash(material)) % 1000000}"
-                                    safe_cancel_del_key = f"cancel_del_{abs(hash(material)) % 1000000}"
+                                    safe_confirm_del_key = f"confirm_del_{hash(material) % 1000000}"
+                                    safe_cancel_del_key = f"cancel_del_{hash(material) % 1000000}"
                                     if st.button("✅", key=safe_confirm_del_key, help="確認刪除", use_container_width=True):
                                         # 記住展開狀態
                                         st.session_state.materials_expander_expanded = True
@@ -1135,7 +1151,7 @@ elif st.session_state.current_page == "材料管理":
                                 else:
                                     # 顯示刪除按鈕
                                     # 使用安全的key，避免特殊符號問題
-                                    safe_del_key = f"del_{abs(hash(material)) % 1000000}"
+                                    safe_del_key = f"del_{hash(material) % 1000000}"
                                     if st.button("🗑️", key=safe_del_key, help=f"刪除 {material}", use_container_width=True):
                                         # 設置刪除確認狀態
                                         st.session_state[f"show_delete_modal_{material}"] = True
@@ -1906,7 +1922,7 @@ elif st.session_state.current_page == "記帳區":
         col1, col2, col3 = st.columns(3)
         with col1:
             st.markdown(f"""
-            <div style="background-color: #d4edda; padding: 15px; text-align: center;">
+            <div style="background-color: #d4edda; padding: 15px; border-radius: 10px; text-align: center;">
                 <h4 style="color: #155724; margin: 0;">💰 總收入</h4>
                 <h2 style="color: #155724; margin: 10px 0;">NT$ {total_income}</h2>
             </div>
@@ -1914,24 +1930,17 @@ elif st.session_state.current_page == "記帳區":
         
         with col2:
             st.markdown(f"""
-            <div style="background-color: #f8d7da; padding: 15px; text-align: center;">
+            <div style="background-color: #f8d7da; padding: 15px; border-radius: 10px; text-align: center;">
                 <h4 style="color: #721c24; margin: 0;">💸 總支出</h4>
                 <h2 style="color: #721c24; margin: 10px 0;">NT$ {total_expense}</h2>
             </div>
             """, unsafe_allow_html=True)
         
         with col3:
-            if net_income >= 0:
-                net_color = "#155724"
-                net_icon = "↗️"
-                bg_color = "#d4edda"
-            else:
-                net_color = "#721c24"
-                net_icon = "↘️"
-                bg_color = "#f8d7da"
-            
+            net_color = "#155724" if net_income >= 0 else "#721c24"
+            net_icon = "↗️" if net_income >= 0 else "↘️"
             st.markdown(f"""
-            <div style="background-color: {bg_color}; padding: 15px; text-align: center;">
+            <div style="background-color: {'#d4edda' if net_income >= 0 else '#f8d7da'}; padding: 15px; border-radius: 10px; text-align: center;">
                 <h4 style="color: {net_color}; margin: 0;">{net_icon} 淨收入</h4>
                 <h2 style="color: {net_color}; margin: 10px 0;">NT$ {net_income}</h2>
             </div>
