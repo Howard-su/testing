@@ -130,6 +130,7 @@ if 'accounting_form_key' not in st.session_state:
     st.session_state.accounting_form_key = 0
 if 'editing_record' not in st.session_state:
     st.session_state.editing_record = None
+
 if 'recipe_expander_states' not in st.session_state:
     st.session_state.recipe_expander_states = {}
 
@@ -479,19 +480,15 @@ if st.session_state.current_page == "成本計算":
                         placeholder="克數"
                     )
                     
-                    # 輸入熟成率（可選）
-                    current_yield_rate = st.session_state.material_yield_rates.get(
-                        material, ""
+                    # 熟成率勾選（固定0.8）
+                    current_yield_enabled = st.session_state.material_yield_rates.get(
+                        material, False
                     )
-                    help_text = (f"請輸入 {safe_material_name} 的熟成率（例如：0.8 表示 80%），"
-                                f"留空則不計算熟成率")
-                    yield_rate = st.text_input(
-                        f"{safe_material_name} 熟成率", 
-                        value=current_yield_rate,
+                    yield_enabled = st.checkbox(
+                        " 使用熟成率 (0.8)",
+                        value=current_yield_enabled,
                         key=safe_yield_key,
-                        help=help_text,
-                        label_visibility="collapsed",
-                        placeholder="熟成率（可選）"
+                        help=f"勾選後 {safe_material_name} 將使用 0.8 的熟成率計算"
                     )
                     
                     # 轉換為數字
@@ -500,27 +497,24 @@ if st.session_state.current_page == "成本計算":
                     except ValueError:
                         weight = 0.0
                     
-                    try:
-                        yield_rate = float(yield_rate) if yield_rate else None
-                    except ValueError:
-                        yield_rate = None
-                    
                     # 只在重量改變時更新session state
                     if weight != current_weight:
                         st.session_state.material_weights[material] = weight
                     
-                    # 只在熟成率改變時更新session state
-                    if yield_rate != current_yield_rate:
-                        st.session_state.material_yield_rates[material] = yield_rate if yield_rate is not None else ""
+                    # 只在熟成率勾選狀態改變時更新session state
+                    if yield_enabled != current_yield_enabled:
+                        st.session_state.material_yield_rates[material] = yield_enabled
                     
                     # 計算單個材料成本（考慮熟成率）
-                    if yield_rate is not None and yield_rate > 0:
-                        # 使用熟成率計算：重量 / 熟成率 * 單價
-                        adjusted_weight = weight / yield_rate
+                    if yield_enabled:
+                        # 使用固定熟成率0.8計算：重量 / 0.8 * 單價
+                        adjusted_weight = weight / 0.8
                         material_cost = adjusted_weight * price
+                        yield_rate = 0.8
                     else:
                         # 原本的計算：重量 * 單價
                         material_cost = weight * price
+                        yield_rate = None
                     
                     total_cost += material_cost
                     recipe_materials[material] = {
@@ -1240,7 +1234,7 @@ elif st.session_state.current_page == "食譜區":
             
             for material, data in recipe_data['materials'].items():
                 st.markdown(f"**{material}**")
-                col1, col2, col3 = st.columns(3)
+                col1, col2 = st.columns(2)
                 
                 with col1:
                     weight = st.number_input(
@@ -1260,39 +1254,26 @@ elif st.session_state.current_page == "食譜區":
                         key=f"edit_price_{material}"
                     )
                 
-                with col3:
-                    # 安全處理 yield_rate，避免 None 值
-                    current_yield_rate = data.get('yield_rate')
-                    if current_yield_rate is None or current_yield_rate == "":
-                        current_yield_rate = 1.0
-                    else:
-                        try:
-                            current_yield_rate = float(current_yield_rate)
-                        except (ValueError, TypeError):
-                            current_yield_rate = 1.0
-                    
-                    yield_rate = st.number_input(
-                        f"{material} 熟成率",
-                        value=current_yield_rate,
-                        min_value=0.1,
-                        max_value=2.0,
-                        step=0.1,
-                        key=f"edit_yield_{material}"
-                    )
+                # 熟成率固定為0.8（不顯示編輯選項）
+                yield_enabled = True
                 
                 # 計算成本
-                if yield_rate > 0:
-                    adjusted_weight = weight / yield_rate
+                if yield_enabled:
+                    # 使用固定熟成率0.8計算：重量 / 0.8 * 單價
+                    adjusted_weight = weight / 0.8
                     material_cost = adjusted_weight * price
+                    yield_rate = 0.8
                 else:
+                    # 原本的計算：重量 * 單價
                     material_cost = weight * price
+                    yield_rate = None
                 
                 edited_materials[material] = {
                     "weight": weight,
                     "price": price,
                     "cost": material_cost,
-                    "yield_rate": yield_rate,
-                    "adjusted_weight": adjusted_weight if yield_rate > 0 else weight
+                    "yield_rate": yield_enabled,  # 儲存勾選狀態
+                    "adjusted_weight": adjusted_weight if yield_enabled else weight
                 }
                 
                 st.markdown(f"成本：NT$ {material_cost:.2f}")
@@ -1319,6 +1300,15 @@ elif st.session_state.current_page == "食譜區":
                 if edited_recipe_name != st.session_state.editing_recipe and edited_recipe_name in st.session_state.saved_recipes:
                     st.error("食譜名稱已存在！")
                 else:
+                    # 同步更新材料管理的單價
+                    for material, data in edited_materials.items():
+                        if material in st.session_state.saved_materials:
+                            # 更新材料管理中的單價
+                            st.session_state.saved_materials[material] = data['price']
+                    
+                    # 儲存材料資料
+                    save_materials_data()
+                    
                     # 更新食譜
                     old_name = st.session_state.editing_recipe
                     updated_recipe_data = {
@@ -1339,7 +1329,7 @@ elif st.session_state.current_page == "食譜區":
                     # 保持食譜展開狀態
                     if edited_recipe_name in st.session_state.recipe_expander_states:
                         st.session_state.recipe_expander_states[edited_recipe_name] = True
-                    st.success(f"✅ 已更新食譜「{edited_recipe_name}」")
+                    st.success(f"✅ 已更新食譜「{edited_recipe_name}」並同步更新材料管理單價")
                     # 不刷新頁面，只重新渲染當前部分
                     st.rerun()
             else:
@@ -1370,6 +1360,20 @@ elif st.session_state.current_page == "食譜區":
                 
                 # 顯示材料列表
                 st.markdown("#### 材料清單")
+                
+                # 添加欄位標題
+                col1, col2, col3, col4 = st.columns(4)
+                with col1:
+                    st.markdown("**材料名稱**")
+                with col2:
+                    st.markdown("**克數**")
+                with col3:
+                    st.markdown("**單價**")
+                with col4:
+                    st.markdown("**成本**")
+                
+                st.markdown("---")
+                
                 for material, data in recipe_data['materials'].items():
                     col1, col2, col3, col4 = st.columns(4)
                     with col1:
@@ -1455,6 +1459,8 @@ elif st.session_state.current_page == "食譜區":
 elif st.session_state.current_page == "記帳區":
     # 記帳區頁面
     st.markdown("### 記帳區")
+    
+
     
 
     
@@ -1911,23 +1917,30 @@ elif st.session_state.current_page == "記帳區":
                                 st.session_state.editing_record_id = record_id
                                 st.rerun()
                         with col_delete:
-                            if st.button("🗑️", key=f"del_{record_id}", help="刪除此記錄", use_container_width=True):
-                                st.warning(f"⚠️ 確定要刪除這筆記錄嗎？")
+                            # 檢查是否在刪除確認狀態
+                            if st.session_state.get(f"show_delete_modal_{record_id}", False):
+                                st.warning("⚠️ 確定要刪除這筆記錄嗎？")
                                 col_confirm, col_cancel = st.columns(2)
                                 with col_confirm:
-                                    if st.button("確認刪除", key=f"confirm_del_{record_id}", help="確認刪除此記錄", use_container_width=True):
-                                        # 根據ID刪除記錄
+                                    if st.button("✅", key=f"confirm_del_{record_id}", help="確認刪除", use_container_width=True):
+                                        # 執行刪除
                                         st.session_state.accounting_records = [
                                             r for r in st.session_state.accounting_records 
                                             if r.get('id', '') != record_id
                                         ]
                                         save_accounting_data()
+                                        st.session_state[f"show_delete_modal_{record_id}"] = False
                                         st.success("✅ 記錄已刪除")
                                         st.rerun()
                                 with col_cancel:
-                                    if st.button("取消", key=f"cancel_del_{record_id}", help="取消刪除此記錄", use_container_width=True):
-                                        st.info("❌ 已取消刪除記錄")
+                                    if st.button("❌", key=f"cancel_del_{record_id}", help="取消刪除", use_container_width=True):
+                                        st.session_state[f"show_delete_modal_{record_id}"] = False
                                         st.rerun()
+                            else:
+                                if st.button("🗑️", key=f"del_{record_id}", help="刪除此記錄", use_container_width=True):
+                                    # 設定刪除確認狀態
+                                    st.session_state[f"show_delete_modal_{record_id}"] = True
+                                    st.rerun()
                 
                 # 添加分隔線
                 st.markdown("---")
