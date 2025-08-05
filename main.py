@@ -126,6 +126,12 @@ if 'price_input_key' not in st.session_state:
     st.session_state.price_input_key = 0
 if 'starred_materials' not in st.session_state:
     st.session_state.starred_materials = set()
+if 'accounting_form_key' not in st.session_state:
+    st.session_state.accounting_form_key = 0
+if 'editing_record' not in st.session_state:
+    st.session_state.editing_record = None
+if 'recipe_expander_states' not in st.session_state:
+    st.session_state.recipe_expander_states = {}
 
 # 載入已儲存的材料資料
 def load_saved_materials():
@@ -728,8 +734,8 @@ elif st.session_state.current_page == "材料管理":
                 if submitted:
                     if not edited_name:
                         st.error("請輸入材料名稱！")
-                    elif edited_price is None or edited_price <= 0:
-                        st.error("請輸入有效的單價（必須大於0）！")
+                    elif edited_price is None or edited_price < 0:
+                        st.error("請輸入有效的單價（必須大於等於0）！")
                     else:
                         # 如果名稱改變，需要檢查是否已存在
                         if edited_name != st.session_state.editing_material and edited_name in st.session_state.saved_materials:
@@ -741,6 +747,12 @@ elif st.session_state.current_page == "材料管理":
                             # 刪除舊材料，添加新材料
                             del st.session_state.saved_materials[old_material_name]
                             st.session_state.saved_materials[edited_name] = edited_price
+                            
+                            # 更新自訂順序（保持原位置）
+                            if hasattr(st.session_state, 'custom_material_order'):
+                                if old_material_name in st.session_state.custom_material_order:
+                                    idx = st.session_state.custom_material_order.index(old_material_name)
+                                    st.session_state.custom_material_order[idx] = edited_name
                             
                             # 更新食譜中的材料價格和成本
                             updated_recipes = []
@@ -787,49 +799,51 @@ elif st.session_state.current_page == "材料管理":
                                 st.success(f"✅ 已更新材料「{edited_name}」")
                             st.rerun()
         
-        # 新增材料表單
-        with st.container():
-            st.markdown('<div class="form-container">', unsafe_allow_html=True)
-            
-            with st.form("add_material_form"):
-                material_name = st.text_input(
-                    "材料名稱",
-                    key=f"material_input_{st.session_state.material_input_key}",
-                    label_visibility="visible",
-                    help="請只輸入材料名稱，不要包含重量或價格信息"
-                )
-                price_per_100g = st.number_input(
-                    "單價 (每g，NT$)", 
-                    min_value=0.0, 
-                    value=None, 
-                    key=f"price_input_{st.session_state.price_input_key}",
-                    step=0.01,
-                    help="輸入每克的價格",
-                    label_visibility="visible"
-                )
+        # 只有在非編輯模式時才顯示新增材料表單
+        else:
+            # 新增材料表單
+            with st.container():
+                st.markdown('<div class="form-container">', unsafe_allow_html=True)
                 
-                submitted = st.form_submit_button("儲存材料", type="primary", use_container_width=True)
-                if submitted:
-                    if not material_name:
-                        st.error("請輸入材料名稱！")
-                    elif price_per_100g is None or price_per_100g < 0:
-                        st.error("請輸入有效的單價（必須大於等於0）！")
-                    else:
-                        st.session_state.saved_materials[material_name] = price_per_100g
-                        save_materials_data()
-                        # 記住展開狀態
-                        st.session_state.materials_expander_expanded = True
-                        # 增加key值來清空輸入框
-                        st.session_state.material_input_key += 1
-                        st.session_state.price_input_key += 1
-                        st.markdown(f"""
-                        <div class="success-message">
-                            <strong>成功！</strong> 已儲存 {material_name}
-                        </div>
-                        """, unsafe_allow_html=True)
-                        st.rerun()
+                with st.form("add_material_form"):
+                    material_name = st.text_input(
+                        "材料名稱",
+                        key=f"material_input_{st.session_state.material_input_key}",
+                        label_visibility="visible",
+                        help="請只輸入材料名稱，不要包含重量或價格信息"
+                    )
+                    price_per_100g = st.number_input(
+                        "單價 (每g，NT$)", 
+                        min_value=0.0, 
+                        value=None, 
+                        key=f"price_input_{st.session_state.price_input_key}",
+                        step=0.01,
+                        help="輸入每克的價格",
+                        label_visibility="visible"
+                    )
+                    
+                    submitted = st.form_submit_button("儲存材料", type="primary", use_container_width=True)
+                    if submitted:
+                        if not material_name:
+                            st.error("請輸入材料名稱！")
+                        elif price_per_100g is None or price_per_100g < 0:
+                            st.error("請輸入有效的單價（必須大於等於0）！")
+                        else:
+                            st.session_state.saved_materials[material_name] = price_per_100g
+                            save_materials_data()
+                            # 記住展開狀態
+                            st.session_state.materials_expander_expanded = True
+                            # 增加key值來清空輸入框
+                            st.session_state.material_input_key += 1
+                            st.session_state.price_input_key += 1
+                            st.markdown(f"""
+                            <div class="success-message">
+                                <strong>成功！</strong> 已儲存 {material_name}
+                            </div>
+                            """, unsafe_allow_html=True)
+                            st.rerun()
 
-            st.markdown('</div>', unsafe_allow_html=True)
+                st.markdown('</div>', unsafe_allow_html=True)
 
     with col2:
         # 右側空白區域
@@ -905,7 +919,7 @@ elif st.session_state.current_page == "材料管理":
                                 col_save, col_cancel = st.columns(2)
                                 with col_save:
                                     if st.button("✅", key=safe_save_key, help="保存修改", use_container_width=True):
-                                        if edited_name and edited_price > 0:
+                                        if edited_name and edited_price >= 0:
                                             # 檢查名稱是否已存在（除了自己）
                                             if edited_name != material and edited_name in st.session_state.saved_materials:
                                                 st.error("材料名稱已存在！")
@@ -915,7 +929,7 @@ elif st.session_state.current_page == "材料管理":
                                                 del st.session_state.saved_materials[material]
                                                 st.session_state.saved_materials[edited_name] = edited_price
                                                 
-                                                # 更新自訂順序
+                                                # 更新自訂順序（保持原位置）
                                                 if hasattr(st.session_state, 'custom_material_order'):
                                                     if material in st.session_state.custom_material_order:
                                                         idx = st.session_state.custom_material_order.index(material)
@@ -1198,10 +1212,10 @@ elif st.session_state.current_page == "材料管理":
                     st.info("❌ 已取消清除所有材料")
                     st.rerun()
         
-        if st.button("切換到成本計算", use_container_width=True):
-            st.info("🔄 正在切換到成本計算頁面...")
-            st.session_state.current_page = "成本計算"
-            st.rerun()
+        # if st.button("切換到成本計算", use_container_width=True):
+        #     st.info("🔄 正在切換到成本計算頁面...")
+        #     st.session_state.current_page = "成本計算"
+        #     st.rerun()
 
 elif st.session_state.current_page == "食譜區":
     # 食譜區頁面
@@ -1219,36 +1233,76 @@ elif st.session_state.current_page == "食譜區":
                 label_visibility="visible"
             )
             
-            # 顯示材料列表（唯讀）
-            st.markdown("#### 材料清單（不可編輯）")
+            # 顯示材料列表（可編輯）
+            st.markdown("#### 材料清單")
             recipe_data = st.session_state.editing_recipe_data
+            edited_materials = {}
+            
             for material, data in recipe_data['materials'].items():
-                col1, col2, col3, col4 = st.columns(4)
+                st.markdown(f"**{material}**")
+                col1, col2, col3 = st.columns(3)
+                
                 with col1:
-                    st.markdown(f"**{material}**")
+                    weight = st.number_input(
+                        f"{material} 重量 (g)",
+                        value=float(data['weight']),
+                        min_value=0.0,
+                        step=1.0,
+                        key=f"edit_weight_{material}"
+                    )
+                
                 with col2:
-                    st.markdown(f"{data['weight']:.1f} g")
+                    price = st.number_input(
+                        f"{material} 單價",
+                        value=float(data['price']),
+                        min_value=0.0,
+                        step=0.01,
+                        key=f"edit_price_{material}"
+                    )
+                
                 with col3:
-                    price_display = data['price']
-                    if price_display == int(price_display):
-                        price_display = int(price_display)
-                    st.markdown(f"NT$ {price_display}")
-                with col4:
-                    cost_display = data['cost']
-                    if cost_display == int(cost_display):
-                        cost_display = int(cost_display)
+                    # 安全處理 yield_rate，避免 None 值
+                    current_yield_rate = data.get('yield_rate')
+                    if current_yield_rate is None or current_yield_rate == "":
+                        current_yield_rate = 1.0
                     else:
-                        cost_display = f"{data['cost']:.2f}"
-                    st.markdown(f"NT$ {cost_display}")
+                        try:
+                            current_yield_rate = float(current_yield_rate)
+                        except (ValueError, TypeError):
+                            current_yield_rate = 1.0
+                    
+                    yield_rate = st.number_input(
+                        f"{material} 熟成率",
+                        value=current_yield_rate,
+                        min_value=0.1,
+                        max_value=2.0,
+                        step=0.1,
+                        key=f"edit_yield_{material}"
+                    )
+                
+                # 計算成本
+                if yield_rate > 0:
+                    adjusted_weight = weight / yield_rate
+                    material_cost = adjusted_weight * price
+                else:
+                    material_cost = weight * price
+                
+                edited_materials[material] = {
+                    "weight": weight,
+                    "price": price,
+                    "cost": material_cost,
+                    "yield_rate": yield_rate,
+                    "adjusted_weight": adjusted_weight if yield_rate > 0 else weight
+                }
+                
+                st.markdown(f"成本：NT$ {material_cost:.2f}")
+                st.markdown("---")
             
-            st.markdown("---")
-            total_cost_display = recipe_data['total_cost']
-            if total_cost_display == int(total_cost_display):
-                total_cost_display = int(total_cost_display)
-            else:
-                total_cost_display = f"{recipe_data['total_cost']:.2f}"
-            st.markdown(f"**總成本：NT$ {total_cost_display}**")
+            # 計算總成本
+            total_cost = sum(mat_data['cost'] for mat_data in edited_materials.values())
+            st.markdown(f"**總成本：NT$ {total_cost:.2f}**")
             
+            # 添加提交按鈕
             col_save, col_cancel = st.columns(2)
             with col_save:
                 submitted = st.form_submit_button("儲存修改", type="primary", use_container_width=True)
@@ -1257,25 +1311,39 @@ elif st.session_state.current_page == "食譜區":
                     st.session_state.editing_recipe = None
                     st.session_state.editing_recipe_data = None
                     st.rerun()
-            
-            if submitted:
-                if edited_recipe_name:
-                    # 如果名稱改變，需要檢查是否已存在
-                    if edited_recipe_name != st.session_state.editing_recipe and edited_recipe_name in st.session_state.saved_recipes:
-                        st.error("食譜名稱已存在！")
-                    else:
-                        # 更新食譜名稱
-                        old_name = st.session_state.editing_recipe
-                        recipe_data = st.session_state.saved_recipes[old_name]
-                        del st.session_state.saved_recipes[old_name]
-                        st.session_state.saved_recipes[edited_recipe_name] = recipe_data
-                        save_recipes_data()
-                        st.session_state.editing_recipe = None
-                        st.session_state.editing_recipe_data = None
-                        st.success(f"✅ 已更新食譜名稱為「{edited_recipe_name}」")
-                        st.rerun()
+        
+        # 處理表單提交（在表單外部）
+        if submitted:
+            if edited_recipe_name:
+                # 如果名稱改變，需要檢查是否已存在
+                if edited_recipe_name != st.session_state.editing_recipe and edited_recipe_name in st.session_state.saved_recipes:
+                    st.error("食譜名稱已存在！")
                 else:
-                    st.error("請輸入食譜名稱！")
+                    # 更新食譜
+                    old_name = st.session_state.editing_recipe
+                    updated_recipe_data = {
+                        "materials": edited_materials,
+                        "total_cost": total_cost,
+                        "created_at": recipe_data['created_at'],
+                        "updated_at": get_taiwan_time().isoformat()
+                    }
+                    
+                    # 如果名稱改變，刪除舊食譜
+                    if edited_recipe_name != old_name:
+                        del st.session_state.saved_recipes[old_name]
+                    
+                    st.session_state.saved_recipes[edited_recipe_name] = updated_recipe_data
+                    save_recipes_data()
+                    st.session_state.editing_recipe = None
+                    st.session_state.editing_recipe_data = None
+                    # 保持食譜展開狀態
+                    if edited_recipe_name in st.session_state.recipe_expander_states:
+                        st.session_state.recipe_expander_states[edited_recipe_name] = True
+                    st.success(f"✅ 已更新食譜「{edited_recipe_name}」")
+                    # 不刷新頁面，只重新渲染當前部分
+                    st.rerun()
+            else:
+                st.error("請輸入食譜名稱！")
     
     if st.session_state.saved_recipes:
         # 顯示已保存的食譜
@@ -1286,9 +1354,18 @@ elif st.session_state.current_page == "食譜區":
             else:
                 total_cost_display = f"{recipe_data['total_cost']:.2f}"
             
-            with st.expander(f"📖 {recipe_name} - NT$ {total_cost_display}", expanded=False):
+            # 使用動態展開狀態
+            expander_key = f"recipe_expander_{recipe_name}"
+            is_expanded = st.session_state.recipe_expander_states.get(recipe_name, False)
+            
+            with st.expander(f"📖 {recipe_name} - NT$ {total_cost_display}", expanded=is_expanded):
+                # 更新展開狀態
+                st.session_state.recipe_expander_states[recipe_name] = True
+                
                 # 顯示食譜詳細資訊
                 st.markdown(f"**創建時間：** {recipe_data['created_at'][:19]}")
+                if 'updated_at' in recipe_data:
+                    st.markdown(f"**最後更新：** {recipe_data['updated_at'][:19]}")
                 st.markdown("---")
                 
                 # 顯示材料列表
@@ -1339,6 +1416,8 @@ elif st.session_state.current_page == "食譜區":
                     if st.button("✏️ 編輯", key=f"edit_recipe_{recipe_name}", use_container_width=True):
                         st.session_state.editing_recipe = recipe_name
                         st.session_state.editing_recipe_data = recipe_data
+                        # 保持展開狀態
+                        st.session_state.recipe_expander_states[recipe_name] = True
                         st.rerun()
 
                 with col_delete:
@@ -1349,6 +1428,9 @@ elif st.session_state.current_page == "食譜區":
                         with col_confirm:
                             if st.button("確認刪除", key=f"confirm_del_recipe_{recipe_name}", use_container_width=True):
                                 del st.session_state.saved_recipes[recipe_name]
+                                # 移除展開狀態
+                                if recipe_name in st.session_state.recipe_expander_states:
+                                    del st.session_state.recipe_expander_states[recipe_name]
                                 save_recipes_data()
                                 st.session_state[f'show_delete_recipe_modal_{recipe_name}'] = False
                                 st.success(f"✅ 已刪除食譜「{recipe_name}」")
@@ -1374,170 +1456,145 @@ elif st.session_state.current_page == "記帳區":
     # 記帳區頁面
     st.markdown("### 記帳區")
     
-    col1, col2 = st.columns([1, 1])
+
     
-    with col1:
-        st.markdown("#### 新增記帳")
+    # 記帳表單（現在佔據整個寬度）
+    st.markdown("#### 新增記帳")
         
-        # 類別管理（在form外面）
-        st.markdown("#### 類別管理")
-        col_category_manage, col_add_category = st.columns([3, 1])
-        with col_category_manage:
-            current_category = st.selectbox(
-                "選擇類別",
-                st.session_state.custom_categories,
-                key="category_selector"
-            )
-        with col_add_category:
-            if st.button("➕ 新增類別", help="新增類別", use_container_width=True):
-                st.session_state.show_add_category = True
-        
-        # 新增類別輸入框
-        if st.session_state.get('show_add_category', False):
+    # 新增類別功能（在表單外面）
+    with st.expander("➕ 新增自訂類別", expanded=False):
+        col_new_category, col_add_btn = st.columns([3, 1])
+        with col_new_category:
             new_category = st.text_input(
-                "新增類別名稱",
-                placeholder="輸入新類別名稱",
+                "新類別名稱",
+                placeholder="例如：食材、設備、包裝...",
                 key="new_category_input"
             )
-            col_save_cat, col_cancel_cat = st.columns(2)
-            with col_save_cat:
-                if st.button("保存", key="save_category", use_container_width=True):
-                    if new_category and new_category not in st.session_state.custom_categories:
-                        st.session_state.custom_categories.append(new_category)
+        with col_add_btn:
+            if st.button("新增", type="primary"):
+                if new_category and new_category.strip():
+                    if new_category not in st.session_state.custom_categories:
+                        st.session_state.custom_categories.append(new_category.strip())
                         save_custom_categories()
-                        st.session_state.show_add_category = False
                         st.success(f"✅ 已新增類別「{new_category}」")
                         st.rerun()
-                    elif new_category in st.session_state.custom_categories:
-                        st.error("❌ 類別已存在！")
                     else:
-                        st.error("❌ 請輸入類別名稱！")
-            with col_cancel_cat:
-                if st.button("取消", key="cancel_category", use_container_width=True):
-                    st.session_state.show_add_category = False
-                    st.rerun()
-        
-        st.markdown("---")
-        st.markdown("#### 新增記帳")
-        
-        # 新增記帳表單
-        with st.form("add_accounting_form"):
-            # 日期選擇
-            record_date = st.date_input(
-                "日期",
-                value=datetime.now().date(),
-                label_visibility="visible"
-            )
-            
-            # 收入/支出選擇
-            transaction_type = st.selectbox(
-                "類型",
-                ["支出", "收入"],
-                label_visibility="visible"
-            )
-            
-            # 類別選擇
-            category = st.selectbox(
-                "類別",
-                st.session_state.custom_categories,
-                label_visibility="visible"
-            )
-            
-            # 細項
-            description = st.text_input(
-                "細項",
-                placeholder="例如：購買麵粉、運費、銷售收入...",
-                label_visibility="visible"
-            )
-            
-            # 金額
-            amount = st.number_input(
-                "金額 (NT$)",
-                min_value=0.0,
-                value=None,
-                step=1.0,
-                label_visibility="visible"
-            )
-            
-            # 地點
-            location = st.text_input(
-                "地點",
-                placeholder="例如：超市、網購、實體店...",
-                label_visibility="visible"
-            )
-            
-            # 購買人
-            buyer = st.text_input(
-                "購買人",
-                placeholder="例如：張三、李四...",
-                label_visibility="visible"
-            )
-            
-            # 產品選擇（來自食譜區）
-            product_options = ["無"] + list(st.session_state.saved_recipes.keys())
-            product = st.selectbox(
-                "產品",
-                product_options,
-                label_visibility="visible"
-            )
-            
-            # 備註（非必填）
-            remark = st.text_area(
-                "備註",
-                placeholder="額外說明（非必填）...",
-                label_visibility="visible",
-                height=80
-            )
-            
-            submitted = st.form_submit_button("新增記帳", type="primary", use_container_width=True)
-            if submitted:
-                if description and amount > 0 and category:
-                    # 使用當前選擇的類別
-                    selected_category = st.session_state.get("category_selector", category)
-                    # 生成唯一ID
-                    record_id = str(uuid.uuid4())
-                    
-                    # 新增記帳記錄
-                    record = {
-                        "id": record_id,
-                        "date": record_date.isoformat(),
-                        "type": transaction_type,
-                        "category": selected_category,
-                        "description": description,
-                        "amount": amount,
-                        "location": location,
-                        "buyer": buyer,
-                        "product": product if product != "無" else "",
-                        "remark": remark,
-                        "created_at": get_taiwan_time().isoformat()
-                    }
-                    st.session_state.accounting_records.append(record)
-                    save_accounting_data()
-                    st.success(f"✅ 記帳成功！{transaction_type} - {description} - NT$ {amount}")
-                    st.rerun()
+                        st.error("❌ 此類別已存在！")
                 else:
-                    st.error("請輸入細項、金額和類別！")
-
-    with col2:
-        st.markdown("#### 記帳統計")
-        
-        if st.session_state.accounting_records:
-            # 計算總收入和總支出
-            total_income = sum(record["amount"] for record in st.session_state.accounting_records if record["type"] == "收入")
-            total_expense = sum(record["amount"] for record in st.session_state.accounting_records if record["type"] == "支出")
-
+                    st.error("❌ 請輸入類別名稱！")
     
-            # 顯示統計
-            col_income, col_expense = st.columns(2)
-            with col_income:
-                st.metric("總收入", f"NT$ {total_income}")
-            with col_expense:
-                st.metric("總支出", f"NT$ {total_expense}")
-            
-            st.markdown("---")
+    st.markdown("---")
+    
+    # 新增記帳表單
+    with st.form(f"add_accounting_form_{st.session_state.accounting_form_key}"):
+        # 日期選擇
+        record_date = st.date_input(
+            "日期",
+            value=datetime.now().date(),
+            key=f"record_date_{st.session_state.accounting_form_key}",
+            label_visibility="visible"
+        )
+        
+        # 收入/支出選擇
+        transaction_type = st.selectbox(
+            "類型",
+            ["支出", "收入"],
+            key=f"transaction_type_{st.session_state.accounting_form_key}",
+            label_visibility="visible"
+        )
+        
+        # 類別選擇
+        category = st.selectbox(
+            "類別",
+            options=st.session_state.custom_categories,
+            placeholder="選擇類別...",
+            key=f"category_{st.session_state.accounting_form_key}",
+            label_visibility="visible"
+        )
+        
+        # 細項
+        description = st.text_input(
+            "細項",
+            placeholder="例如：購買麵粉、運費、銷售收入...",
+            key=f"description_{st.session_state.accounting_form_key}",
+            label_visibility="visible"
+        )
+        
+        # 金額
+        amount = st.number_input(
+            "金額 (NT$)",
+            min_value=0.0,
+            value=None,
+            step=1.0,
+            key=f"amount_{st.session_state.accounting_form_key}",
+            label_visibility="visible"
+        )
+        
+        # 地點
+        location = st.text_input(
+            "地點",
+            placeholder="例如：超市、網購、實體店...",
+            key=f"location_{st.session_state.accounting_form_key}",
+            label_visibility="visible"
+        )
+        
+        # 購買人
+        buyer = st.text_input(
+            "購買人",
+            placeholder="例如：張三、李四...",
+            key=f"buyer_{st.session_state.accounting_form_key}",
+            label_visibility="visible"
+        )
+        
+        # 產品選擇（來自食譜區）- 改為複選
+        product_options = list(st.session_state.saved_recipes.keys())
+        selected_products = st.multiselect(
+            "產品（可複選）",
+            product_options,
+            key=f"products_{st.session_state.accounting_form_key}",
+            label_visibility="visible"
+        )
+        
+        # 備註（非必填）
+        remark = st.text_area(
+            "備註",
+            placeholder="額外說明（非必填）...",
+            key=f"remark_{st.session_state.accounting_form_key}",
+            label_visibility="visible",
+            height=80
+        )
+        
+        submitted = st.form_submit_button("新增記帳", type="primary", use_container_width=True)
+        if submitted:
+            if description and amount > 0:
+                # 生成唯一ID
+                record_id = str(uuid.uuid4())
+                
+                # 新增記帳記錄
+                record = {
+                    "id": record_id,
+                    "date": record_date.isoformat(),
+                    "type": transaction_type,
+                    "category": category if category else "其他",  # 使用選擇的類別
+                    "description": description,
+                    "amount": amount,
+                    "location": location,
+                    "buyer": buyer,
+                    "products": selected_products,  # 改為複選
+                    "remark": remark,
+                    "created_at": get_taiwan_time().isoformat()
+                }
+                st.session_state.accounting_records.append(record)
+                save_accounting_data()
+                
+                # 增加form key來清空輸入框
+                st.session_state.accounting_form_key += 1
+                
+                st.success(f"✅ 記帳成功！{transaction_type} - {description} - NT$ {amount}")
+                st.rerun()
+            else:
+                st.error("請輸入細項和金額！")
 
-        else:
-            st.info("尚未有任何記帳記錄")
     
     # 記帳記錄和月報表
     if st.session_state.accounting_records:
@@ -1566,9 +1623,15 @@ elif st.session_state.current_page == "記帳區":
             # 獲取所有產品的值
             all_products = set()
             for record in st.session_state.accounting_records:
-                product = record.get('product', '')
-                if product:  # 只包含有產品的記錄
-                    all_products.add(product)
+                products = record.get('products', [])
+                if not products:  # 相容舊格式
+                    product = record.get('product', '')
+                    products = [product] if product else []
+                for product in products:
+                    if product:  # 只包含有產品的記錄
+                        all_products.add(product)
+            
+
             
             # 產品選擇（始終顯示）
             product_filter = st.selectbox(
@@ -1584,9 +1647,11 @@ elif st.session_state.current_page == "記帳區":
             elif record_filter == "總支出紀錄":
                 filtered_records = [r for r in st.session_state.accounting_records if r["type"] == "支出"]
             
+
+            
             # 根據產品篩選
             if product_filter != "全部產品":
-                filtered_records = [r for r in filtered_records if r.get('product', '') == product_filter]
+                filtered_records = [r for r in filtered_records if product_filter in (r.get('products', []) or [r.get('product', '')])]
             
             # 日期篩選
             if filtered_records:
@@ -1676,7 +1741,7 @@ elif st.session_state.current_page == "記帳區":
                 
                 st.markdown(f"**{period_title}記錄：**")
             
-            # 顯示記帳記錄（每行都有刪除按鈕）
+            # 顯示記帳記錄（每行都有編輯和刪除按鈕）
             # 表頭
             with st.container():
                 col1, col2, col3, col4, col5, col6, col7, col8, col9, col10 = st.columns([1, 1, 1, 2, 1, 1, 1, 1, 1, 1])
@@ -1713,8 +1778,111 @@ elif st.session_state.current_page == "記帳區":
                 type_icon = "💰" if record['type'] == "收入" else "💸"
                 record_id = record.get('id', f'legacy_{i}')  # 相容舊資料
                 
-                # 創建記錄行
-                with st.container():
+                # 處理產品顯示（支援舊格式和新格式）
+                products = record.get('products', [])
+                if not products:  # 相容舊格式
+                    product = record.get('product', '')
+                    products = [product] if product else []
+                products_display = ", ".join(products) if products else ""
+                
+                # 檢查是否正在編輯此記錄
+                is_editing = st.session_state.get('editing_record_id') == record_id
+                
+                if is_editing:
+                    # 內嵌編輯表單
+                    with st.container():
+                        st.markdown("**📝 編輯記錄**")
+                        with st.form(f"inline_edit_{record_id}"):
+                            col_edit1, col_edit2 = st.columns(2)
+                            
+                            with col_edit1:
+                                edit_date = st.date_input(
+                                    "日期",
+                                    value=datetime.fromisoformat(record['date']).date(),
+                                    key=f"edit_date_{record_id}"
+                                )
+                                edit_type = st.selectbox(
+                                    "類型",
+                                    ["支出", "收入"],
+                                    index=0 if record['type'] == "支出" else 1,
+                                    key=f"edit_type_{record_id}"
+                                )
+                                edit_category = st.selectbox(
+                                    "類別",
+                                    st.session_state.custom_categories,
+                                    index=st.session_state.custom_categories.index(record['category']) if record['category'] in st.session_state.custom_categories else 0,
+                                    key=f"edit_category_{record_id}"
+                                )
+                                edit_description = st.text_input(
+                                    "細項",
+                                    value=record['description'],
+                                    key=f"edit_description_{record_id}"
+                                )
+                                edit_amount = st.number_input(
+                                    "金額 (NT$)",
+                                    min_value=0.0,
+                                    value=float(record['amount']),
+                                    key=f"edit_amount_{record_id}"
+                                )
+                            
+                            with col_edit2:
+                                edit_location = st.text_input(
+                                    "地點",
+                                    value=record.get('location', ''),
+                                    key=f"edit_location_{record_id}"
+                                )
+                                edit_buyer = st.text_input(
+                                    "購買人",
+                                    value=record.get('buyer', ''),
+                                    key=f"edit_buyer_{record_id}"
+                                )
+                                
+                                # 產品選擇
+                                product_options = list(st.session_state.saved_recipes.keys())
+                                current_products = record.get('products', [])
+                                if not current_products:
+                                    product = record.get('product', '')
+                                    current_products = [product] if product else []
+                                
+                                edit_products = st.multiselect(
+                                    "產品（可複選）",
+                                    product_options,
+                                    default=current_products,
+                                    key=f"edit_products_{record_id}"
+                                )
+                                
+                                edit_remark = st.text_area(
+                                    "備註",
+                                    value=record.get('remark', ''),
+                                    height=80,
+                                    key=f"edit_remark_{record_id}"
+                                )
+                            
+                            col_save, col_cancel = st.columns(2)
+                            with col_save:
+                                if st.form_submit_button("💾 儲存", type="primary"):
+                                    # 更新記錄
+                                    record['date'] = edit_date.isoformat()
+                                    record['type'] = edit_type
+                                    record['category'] = edit_category
+                                    record['description'] = edit_description
+                                    record['amount'] = edit_amount
+                                    record['location'] = edit_location
+                                    record['buyer'] = edit_buyer
+                                    record['products'] = edit_products
+                                    record['remark'] = edit_remark
+                                    
+                                    save_accounting_data()
+                                    st.session_state.editing_record_id = None
+                                    st.success("✅ 記錄已更新")
+                                    st.rerun()
+                            
+                            with col_cancel:
+                                if st.form_submit_button("❌ 取消"):
+                                    st.session_state.editing_record_id = None
+                                    st.rerun()
+                else:
+                    # 正常顯示記錄
                     col1, col2, col3, col4, col5, col6, col7, col8, col9, col10 = st.columns([1, 1, 1, 2, 1, 1, 1, 1, 1, 1])
                     
                     with col1:
@@ -1732,28 +1900,34 @@ elif st.session_state.current_page == "記帳區":
                     with col7:
                         st.markdown(f"{record.get('buyer', '')}")
                     with col8:
-                        st.markdown(f"{record.get('product', '')}")
+                        st.markdown(f"{products_display}")
                     with col9:
                         st.markdown(f"{record.get('remark', '')}")
                     with col10:
-                        # 刪除按鈕
-                        if st.button("🗑️", key=f"del_{record_id}", help="刪除此記錄", use_container_width=True):
-                            st.warning(f"⚠️ 確定要刪除這筆記錄嗎？")
-                            col_confirm, col_cancel = st.columns(2)
-                            with col_confirm:
-                                if st.button("確認刪除", key=f"confirm_del_{record_id}", help="確認刪除此記錄", use_container_width=True):
-                                    # 根據ID刪除記錄
-                                    st.session_state.accounting_records = [
-                                        r for r in st.session_state.accounting_records 
-                                        if r.get('id', '') != record_id
-                                    ]
-                                    save_accounting_data()
-                                    st.success("✅ 記錄已刪除")
-                                    st.rerun()
-                            with col_cancel:
-                                if st.button("取消", key=f"cancel_del_{record_id}", help="取消刪除此記錄", use_container_width=True):
-                                    st.info("❌ 已取消刪除記錄")
-                                    st.rerun()
+                        # 編輯和刪除按鈕
+                        col_edit, col_delete = st.columns(2)
+                        with col_edit:
+                            if st.button("✏️", key=f"edit_{record_id}", help="編輯此記錄", use_container_width=True):
+                                st.session_state.editing_record_id = record_id
+                                st.rerun()
+                        with col_delete:
+                            if st.button("🗑️", key=f"del_{record_id}", help="刪除此記錄", use_container_width=True):
+                                st.warning(f"⚠️ 確定要刪除這筆記錄嗎？")
+                                col_confirm, col_cancel = st.columns(2)
+                                with col_confirm:
+                                    if st.button("確認刪除", key=f"confirm_del_{record_id}", help="確認刪除此記錄", use_container_width=True):
+                                        # 根據ID刪除記錄
+                                        st.session_state.accounting_records = [
+                                            r for r in st.session_state.accounting_records 
+                                            if r.get('id', '') != record_id
+                                        ]
+                                        save_accounting_data()
+                                        st.success("✅ 記錄已刪除")
+                                        st.rerun()
+                                with col_cancel:
+                                    if st.button("取消", key=f"cancel_del_{record_id}", help="取消刪除此記錄", use_container_width=True):
+                                        st.info("❌ 已取消刪除記錄")
+                                        st.rerun()
                 
                 # 添加分隔線
                 st.markdown("---")
