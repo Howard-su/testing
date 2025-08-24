@@ -5,9 +5,61 @@ import base64
 import uuid
 from datetime import datetime, timezone, timedelta
 import os
+import gspread
+from google.oauth2.service_account import Credentials
 
 # 設定台灣時區
 TAIWAN_TZ = timezone(timedelta(hours=8))
+
+# Google Sheets 設定
+SCOPES = [
+    'https://www.googleapis.com/auth/spreadsheets',
+    'https://www.googleapis.com/auth/drive'
+]
+
+def get_google_sheets_client():
+    """取得 Google Sheets 客戶端"""
+    try:
+        # 從 Streamlit secrets 讀取服務帳號資訊
+        service_account_info = {
+            "type": st.secrets["type"],
+            "project_id": st.secrets["project_id"],
+            "private_key_id": st.secrets["private_key_id"],
+            "private_key": st.secrets["private_key"],
+            "client_email": st.secrets["client_email"],
+            "client_id": st.secrets["client_id"],
+            "auth_uri": st.secrets["auth_uri"],
+            "token_uri": st.secrets["token_uri"],
+            "auth_provider_x509_cert_url": st.secrets["auth_provider_x509_cert_url"],
+            "client_x509_cert_url": st.secrets["client_x509_cert_url"]
+        }
+        credentials = Credentials.from_service_account_info(
+            service_account_info, scopes=SCOPES
+        )
+        client = gspread.authorize(credentials)
+        return client
+    except Exception as e:
+        st.error(f"無法連接到 Google Sheets: {e}")
+        return None
+
+def get_google_sheet():
+    """取得指定的 Google Sheet"""
+    try:
+        client = get_google_sheets_client()
+        if not client:
+            return None
+        
+        # 從 secrets 取得 spreadsheet URL
+        spreadsheet_url = st.secrets["spreadsheet"]
+        # 從 URL 中提取 spreadsheet ID
+        spreadsheet_id = spreadsheet_url.split('/d/')[1].split('/')[0]
+        
+        # 開啟 spreadsheet
+        sheet = client.open_by_key(spreadsheet_id)
+        return sheet
+    except Exception as e:
+        st.error(f"無法取得 Google Sheet: {e}")
+        return None
 
 def get_taiwan_time():
     """取得台灣時間"""
@@ -136,6 +188,36 @@ if 'recipe_expander_states' not in st.session_state:
 
 # 載入已儲存的材料資料
 def load_saved_materials():
+    try:
+        # 嘗試從 Google Sheets 載入
+        sheet = get_google_sheet()
+        if sheet:
+            # 嘗試取得材料工作表
+            try:
+                worksheet = sheet.worksheet("材料")
+            except:
+                # 如果不存在，創建新的
+                worksheet = sheet.add_worksheet(title="材料", rows=1000, cols=10)
+                # 寫入標題
+                worksheet.append_row(['材料名稱', '單價', '更新時間'])
+            
+            # 讀取資料
+            data = worksheet.get_all_records()
+            materials = {}
+            
+            for row in data:
+                if row.get('材料名稱') and row.get('單價') is not None:
+                    try:
+                        price = float(row['單價'])
+                        materials[row['材料名稱']] = price
+                    except ValueError:
+                        continue
+            
+            return materials
+    except Exception as e:
+        st.error(f"從 Google Sheets 載入材料資料時發生錯誤：{e}")
+    
+    # 如果 Google Sheets 失敗，嘗試從本地檔案載入
     if os.path.exists('saved_materials.json'):
         try:
             with open('saved_materials.json', 'r', encoding='utf-8') as f:
@@ -166,7 +248,39 @@ def load_saved_materials():
 # 儲存材料資料
 def save_materials_data():
     try:
-        # 直接儲存，不使用 base64 編碼
+        # 嘗試儲存到 Google Sheets
+        sheet = get_google_sheet()
+        if sheet:
+            # 嘗試取得材料工作表
+            try:
+                worksheet = sheet.worksheet("材料")
+            except:
+                # 如果不存在，創建新的
+                worksheet = sheet.add_worksheet(title="材料", rows=1000, cols=10)
+                # 寫入標題
+                worksheet.append_row(['材料名稱', '單價', '更新時間'])
+            
+            # 清空現有資料
+            worksheet.clear()
+            
+            # 寫入標題
+            worksheet.append_row(['材料名稱', '單價', '更新時間'])
+            
+            # 寫入資料
+            for material, price in st.session_state.saved_materials.items():
+                worksheet.append_row([
+                    material, 
+                    price, 
+                    datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                ])
+            
+            st.success("✅ 資料已同步到 Google Sheets")
+            return
+    except Exception as e:
+        st.error(f"儲存到 Google Sheets 時發生錯誤：{e}")
+    
+    # 如果 Google Sheets 失敗，儲存到本地檔案
+    try:
         with open('saved_materials.json', 'w', encoding='utf-8') as f:
             json.dump(st.session_state.saved_materials, f, ensure_ascii=False, indent=2)
     except Exception as e:
@@ -175,6 +289,45 @@ def save_materials_data():
  
 # 載入已儲存的食譜資料
 def load_saved_recipes():
+    try:
+        # 嘗試從 Google Sheets 載入
+        sheet = get_google_sheet()
+        if sheet:
+            # 嘗試取得食譜工作表
+            try:
+                worksheet = sheet.worksheet("食譜")
+            except:
+                # 如果不存在，創建新的
+                worksheet = sheet.add_worksheet(title="食譜", rows=1000, cols=20)
+                # 寫入標題
+                worksheet.append_row(['食譜名稱', '材料', '總成本', '創建時間'])
+            
+            # 讀取資料
+            data = worksheet.get_all_records()
+            recipes = {}
+            
+            for row in data:
+                if row.get('食譜名稱'):
+                    recipe_name = row['食譜名稱']
+                    try:
+                        # 解析材料資料（假設存儲為 JSON 字串）
+                        materials_str = row.get('材料', '{}')
+                        materials = json.loads(materials_str) if materials_str else {}
+                        
+                        recipes[recipe_name] = {
+                            "materials": materials,
+                            "total_cost": float(row.get('總成本', 0)),
+                            "created_at": row.get('創建時間', datetime.now().isoformat())
+                        }
+                    except Exception as e:
+                        st.warning(f"解析食譜 {recipe_name} 時發生錯誤：{e}")
+                        continue
+            
+            return recipes
+    except Exception as e:
+        st.error(f"從 Google Sheets 載入食譜資料時發生錯誤：{e}")
+    
+    # 如果 Google Sheets 失敗，嘗試從本地檔案載入
     if os.path.exists('saved_recipes.json'):
         try:
             with open('saved_recipes.json', 'r', encoding='utf-8') as f:
@@ -192,6 +345,40 @@ def load_saved_recipes():
 # 儲存食譜資料
 def save_recipes_data():
     try:
+        # 嘗試儲存到 Google Sheets
+        sheet = get_google_sheet()
+        if sheet:
+            # 嘗試取得食譜工作表
+            try:
+                worksheet = sheet.worksheet("食譜")
+            except:
+                # 如果不存在，創建新的
+                worksheet = sheet.add_worksheet(title="食譜", rows=1000, cols=20)
+                # 寫入標題
+                worksheet.append_row(['食譜名稱', '材料', '總成本', '創建時間'])
+            
+            # 清空現有資料
+            worksheet.clear()
+            
+            # 寫入標題
+            worksheet.append_row(['食譜名稱', '材料', '總成本', '創建時間'])
+            
+            # 寫入資料
+            for recipe_name, recipe_data in st.session_state.saved_recipes.items():
+                worksheet.append_row([
+                    recipe_name,
+                    json.dumps(recipe_data['materials'], ensure_ascii=False),
+                    recipe_data['total_cost'],
+                    recipe_data['created_at']
+                ])
+            
+            st.success("✅ 食譜資料已同步到 Google Sheets")
+            return
+    except Exception as e:
+        st.error(f"儲存食譜到 Google Sheets 時發生錯誤：{e}")
+    
+    # 如果 Google Sheets 失敗，儲存到本地檔案
+    try:
         with open('saved_recipes.json', 'w', encoding='utf-8') as f:
             json.dump(st.session_state.saved_recipes, f, ensure_ascii=False, indent=2)
     except Exception as e:
@@ -200,6 +387,52 @@ def save_recipes_data():
 
 # 載入記帳資料
 def load_accounting_data():
+    try:
+        # 嘗試從 Google Sheets 載入
+        sheet = get_google_sheet()
+        if sheet:
+            # 嘗試取得記帳工作表
+            try:
+                worksheet = sheet.worksheet("記帳")
+            except:
+                # 如果不存在，創建新的
+                worksheet = sheet.add_worksheet(title="記帳", rows=1000, cols=15)
+                # 寫入標題
+                worksheet.append_row([
+                    'ID', '日期', '類型', '類別', '細項', '金額', 
+                    '地點', '購買人', '產品', '備註', '創建時間'
+                ])
+            
+            # 讀取資料
+            data = worksheet.get_all_records()
+            records = []
+            
+            for row in data:
+                if row.get('ID'):
+                    try:
+                        record = {
+                            "id": row['ID'],
+                            "date": row.get('日期', ''),
+                            "type": row.get('類型', ''),
+                            "category": row.get('類別', ''),
+                            "description": row.get('細項', ''),
+                            "amount": float(row.get('金額', 0)),
+                            "location": row.get('地點', ''),
+                            "buyer": row.get('購買人', ''),
+                            "product": row.get('產品', ''),
+                            "remark": row.get('備註', ''),
+                            "created_at": row.get('創建時間', datetime.now().isoformat())
+                        }
+                        records.append(record)
+                    except Exception as e:
+                        st.warning(f"解析記帳記錄時發生錯誤：{e}")
+                        continue
+            
+            return records
+    except Exception as e:
+        st.error(f"從 Google Sheets 載入記帳資料時發生錯誤：{e}")
+    
+    # 如果 Google Sheets 失敗，嘗試從本地檔案載入
     if os.path.exists('accounting_records.json'):
         try:
             with open('accounting_records.json', 'r', encoding='utf-8') as f:
@@ -222,6 +455,53 @@ def load_accounting_data():
 # 儲存記帳資料
 def save_accounting_data():
     try:
+        # 嘗試儲存到 Google Sheets
+        sheet = get_google_sheet()
+        if sheet:
+            # 嘗試取得記帳工作表
+            try:
+                worksheet = sheet.worksheet("記帳")
+            except:
+                # 如果不存在，創建新的
+                worksheet = sheet.add_worksheet(title="記帳", rows=1000, cols=15)
+                # 寫入標題
+                worksheet.append_row([
+                    'ID', '日期', '類型', '類別', '細項', '金額', 
+                    '地點', '購買人', '產品', '備註', '創建時間'
+                ])
+            
+            # 清空現有資料
+            worksheet.clear()
+            
+            # 寫入標題
+            worksheet.append_row([
+                'ID', '日期', '類型', '類別', '細項', '金額', 
+                '地點', '購買人', '產品', '備註', '創建時間'
+            ])
+            
+            # 寫入資料
+            for record in st.session_state.accounting_records:
+                worksheet.append_row([
+                    record.get('id', ''),
+                    record.get('date', ''),
+                    record.get('type', ''),
+                    record.get('category', ''),
+                    record.get('description', ''),
+                    record.get('amount', 0),
+                    record.get('location', ''),
+                    record.get('buyer', ''),
+                    record.get('product', ''),
+                    record.get('remark', ''),
+                    record.get('created_at', '')
+                ])
+            
+            st.success("✅ 記帳資料已同步到 Google Sheets")
+            return
+    except Exception as e:
+        st.error(f"儲存記帳資料到 Google Sheets 時發生錯誤：{e}")
+    
+    # 如果 Google Sheets 失敗，儲存到本地檔案
+    try:
         with open('accounting_records.json', 'w', encoding='utf-8') as f:
             json.dump(st.session_state.accounting_records, f, ensure_ascii=False, indent=2)
     except Exception as e:
@@ -229,6 +509,35 @@ def save_accounting_data():
 
 # 儲存自訂類別
 def save_custom_categories():
+    try:
+        # 嘗試儲存到 Google Sheets
+        sheet = get_google_sheet()
+        if sheet:
+            # 嘗試取得設定工作表
+            try:
+                worksheet = sheet.worksheet("設定")
+            except:
+                # 如果不存在，創建新的
+                worksheet = sheet.add_worksheet(title="設定", rows=100, cols=10)
+                # 寫入標題
+                worksheet.append_row(['類別名稱'])
+            
+            # 清空現有資料
+            worksheet.clear()
+            
+            # 寫入標題
+            worksheet.append_row(['類別名稱'])
+            
+            # 寫入類別
+            for category in st.session_state.custom_categories:
+                worksheet.append_row([category])
+            
+            st.success("✅ 類別設定已同步到 Google Sheets")
+            return
+    except Exception as e:
+        st.error(f"儲存類別設定到 Google Sheets 時發生錯誤：{e}")
+    
+    # 如果 Google Sheets 失敗，儲存到本地檔案
     try:
         with open('custom_categories.json', 'w', encoding='utf-8') as f:
             json.dump(st.session_state.custom_categories, f, ensure_ascii=False, indent=2)
@@ -337,6 +646,35 @@ with st.sidebar:
             
         except Exception as e:
             st.error(f"❌ 匯入失敗：{e}")
+    
+    # Google Sheets 同步功能
+    st.markdown("---")
+    st.markdown("### 🔄 Google Sheets 同步")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        if st.button("📤 上傳到 Google Sheets", use_container_width=True):
+            try:
+                save_materials_data()
+                save_recipes_data()
+                save_accounting_data()
+                save_custom_categories()
+                st.success("✅ 所有資料已同步到 Google Sheets")
+            except Exception as e:
+                st.error(f"同步失敗：{e}")
+    
+    with col2:
+        if st.button("📥 從 Google Sheets 載入", use_container_width=True):
+            try:
+                st.session_state.saved_materials = load_saved_materials()
+                st.session_state.saved_recipes = load_saved_recipes()
+                st.session_state.accounting_records = load_accounting_data()
+                st.session_state.custom_categories = load_custom_categories()
+                st.success("✅ 已從 Google Sheets 載入所有資料")
+                st.rerun()
+            except Exception as e:
+                st.error(f"載入失敗：{e}")
     
     st.markdown('</div>', unsafe_allow_html=True)
 
