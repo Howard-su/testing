@@ -260,19 +260,20 @@ def save_materials_data():
                 # 寫入標題
                 worksheet.append_row(['材料名稱', '單價', '更新時間'])
             
-            # 清空現有資料
-            worksheet.clear()
+            # 準備批量資料
+            batch_data = [['材料名稱', '單價', '更新時間']]  # 標題行
             
-            # 寫入標題
-            worksheet.append_row(['材料名稱', '單價', '更新時間'])
-            
-            # 寫入資料
+            # 添加所有資料到批次
             for material, price in st.session_state.saved_materials.items():
-                worksheet.append_row([
+                batch_data.append([
                     material, 
                     price, 
                     datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 ])
+            
+            # 清空現有資料並批量寫入
+            worksheet.clear()
+            worksheet.update('A1', batch_data)
             
             st.success("✅ 資料已同步到 Google Sheets")
             return
@@ -357,20 +358,21 @@ def save_recipes_data():
                 # 寫入標題
                 worksheet.append_row(['食譜名稱', '材料', '總成本', '創建時間'])
             
-            # 清空現有資料
-            worksheet.clear()
+            # 準備批量資料
+            batch_data = [['食譜名稱', '材料', '總成本', '創建時間']]  # 標題行
             
-            # 寫入標題
-            worksheet.append_row(['食譜名稱', '材料', '總成本', '創建時間'])
-            
-            # 寫入資料
+            # 添加所有資料到批次
             for recipe_name, recipe_data in st.session_state.saved_recipes.items():
-                worksheet.append_row([
+                batch_data.append([
                     recipe_name,
                     json.dumps(recipe_data['materials'], ensure_ascii=False),
                     recipe_data['total_cost'],
                     recipe_data['created_at']
                 ])
+            
+            # 清空現有資料並批量寫入
+            worksheet.clear()
+            worksheet.update('A1', batch_data)
             
             st.success("✅ 食譜資料已同步到 Google Sheets")
             return
@@ -470,18 +472,13 @@ def save_accounting_data():
                     '地點', '購買人', '產品', '備註', '創建時間'
                 ])
             
-            # 清空現有資料
-            worksheet.clear()
+            # 準備批量資料
+            batch_data = [['ID', '日期', '類型', '類別', '細項', '金額', 
+                          '地點', '購買人', '產品', '備註', '創建時間']]  # 標題行
             
-            # 寫入標題
-            worksheet.append_row([
-                'ID', '日期', '類型', '類別', '細項', '金額', 
-                '地點', '購買人', '產品', '備註', '創建時間'
-            ])
-            
-            # 寫入資料
+            # 添加所有資料到批次
             for record in st.session_state.accounting_records:
-                worksheet.append_row([
+                batch_data.append([
                     record.get('id', ''),
                     record.get('date', ''),
                     record.get('type', ''),
@@ -494,6 +491,10 @@ def save_accounting_data():
                     record.get('remark', ''),
                     record.get('created_at', '')
                 ])
+            
+            # 清空現有資料並批量寫入
+            worksheet.clear()
+            worksheet.update('A1', batch_data)
             
             st.success("✅ 記帳資料已同步到 Google Sheets")
             return
@@ -522,15 +523,16 @@ def save_custom_categories():
                 # 寫入標題
                 worksheet.append_row(['類別名稱'])
             
-            # 清空現有資料
-            worksheet.clear()
+            # 準備批量資料
+            batch_data = [['類別名稱']]  # 標題行
             
-            # 寫入標題
-            worksheet.append_row(['類別名稱'])
-            
-            # 寫入類別
+            # 添加所有類別到批次
             for category in st.session_state.custom_categories:
-                worksheet.append_row([category])
+                batch_data.append([category])
+            
+            # 清空現有資料並批量寫入
+            worksheet.clear()
+            worksheet.update('A1', batch_data)
             
             st.success("✅ 類別設定已同步到 Google Sheets")
             return
