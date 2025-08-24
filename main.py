@@ -712,8 +712,9 @@ if st.session_state.current_page == "成本計算":
                 # 安全地顯示材料名稱，避免特殊符號問題
                 import html
                 import re
-                # 使用更安全的字符串處理，特別處理 $ 符號
-                safe_material_name = material.replace('$', '＄')  # 使用全形美元符號
+                # 確保 material 是字串，然後進行安全處理
+                material_str = str(material) if material is not None else ""
+                safe_material_name = material_str.replace('$', '＄')  # 使用全形美元符號
                 safe_material_name = html.escape(safe_material_name)
                 if st.checkbox(
                     f"{safe_material_name} (NT$ {price_display}/g)",
@@ -790,7 +791,8 @@ if st.session_state.current_page == "成本計算":
                     # 安全地顯示材料名稱
                     import html
                     # 使用更安全的字符串處理，特別處理 $ 符號
-                    safe_material_name = material.replace('$', '＄')  # 使用全形美元符號
+                    material_str = str(material) if material is not None else ""
+                    safe_material_name = material_str.replace('$', '＄')  # 使用全形美元符號
                     safe_material_name = html.escape(safe_material_name)
                     
                     # 檢查是否為標記的材料，如果是則加上星號
@@ -910,7 +912,8 @@ if st.session_state.current_page == "成本計算":
                             # 安全地顯示材料名稱
                             import html
                             # 使用更安全的字符串處理，特別處理 $ 符號
-                            safe_material_name = material.replace('$', '＄')  # 使用全形美元符號
+                            material_str = str(material) if material is not None else ""
+                            safe_material_name = material_str.replace('$', '＄')  # 使用全形美元符號
                             safe_material_name = html.escape(safe_material_name)
                             
                             # 檢查是否為標記的材料，如果是則加上星號
@@ -1321,7 +1324,8 @@ elif st.session_state.current_page == "材料管理":
                                 # 顯示正常的材料信息
                                 import html
                                 # 使用更安全的字符串處理，特別處理 $ 符號
-                                safe_material_name = material.replace('$', '＄')  # 使用全形美元符號
+                                material_str = str(material) if material is not None else ""
+                                safe_material_name = material_str.replace('$', '＄')  # 使用全形美元符號
                                 safe_material_name = html.escape(safe_material_name)
                                 
                                 # 檢查是否為標記的材料，如果是則加上星號
