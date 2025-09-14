@@ -1053,7 +1053,6 @@ elif st.session_state.current_page == "材料管理":
                 edited_price = st.number_input(
                     "單價 (每g，NT$)", 
                     min_value=0.0, 
-                    value=float(st.session_state.editing_price) if st.session_state.editing_price is not None else 0.0, 
                     help="輸入每克的價格",
                     label_visibility="visible"
                 )
