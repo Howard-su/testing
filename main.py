@@ -1050,12 +1050,25 @@ elif st.session_state.current_page == "材料管理":
                     value=st.session_state.editing_material,
                     label_visibility="visible"
                 )
-                edited_price = st.number_input(
+                edited_price = st.text_input(
                     "單價 (每g，NT$)", 
-                    min_value=0.0, 
-                    help="輸入每克的價格",
+                    value=str(st.session_state.editing_price) if st.session_state.editing_price is not None else "",
+                    help="輸入每克的價格，例如：0.0003",
                     label_visibility="visible"
                 )
+
+                # 驗證輸入是否為有效數字
+                try:
+                    if edited_price:
+                        edited_price = float(edited_price)
+                        if edited_price < 0:
+                            st.error("單價不能為負數！")
+                            edited_price = None
+                    else:
+                        edited_price = None
+                except ValueError:
+                    st.error("請輸入有效的數字！")
+                    edited_price = None
 
                 col_save, col_cancel = st.columns(2)
                 with col_save:
@@ -1241,14 +1254,25 @@ elif st.session_state.current_page == "材料管理":
                                         help="請只輸入材料名稱，不要包含重量或價格信息"
                                     )
                                 with col_price:
-                                    edited_price = st.number_input(
+                                    edited_price = st.text_input(
                                         "單價",
-                                        value=float(price),
-                                        min_value=0.0,
-                                        step=0.01,
-                                        key=safe_edit_price_key,
+                                        value=str(st.session_state.editing_price) if st.session_state.editing_price is not None else "",
+                                        help="輸入每克的價格，例如：0.0003",
                                         label_visibility="collapsed"
                                     )
+                                
+                                # 驗證輸入是否為有效數字
+                                try:
+                                    if edited_price:
+                                        edited_price = float(edited_price)
+                                        if edited_price < 0:
+                                            st.error("單價不能為負數！")
+                                            edited_price = None
+                                    else:
+                                        edited_price = None
+                                except ValueError:
+                                    st.error("請輸入有效的數字！")
+                                    edited_price = None
                                 
                                 # 確認和取消按鈕
                                 col_save, col_cancel = st.columns(2)
